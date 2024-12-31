@@ -51,7 +51,7 @@ Building and using it against other Apache Fineract® versions may be possible, 
 java -Dloader.path=$MIFOS_PENTAHO_PLUGIN_HOME/libs/ -jar $APACHE_FINERACT_HOME/fineract-provider.jar
 ```
 
-4. Test the Mifors® reports execution using the following curl example or through the Mifos Web App in the Reports Menu
+4. Test the Mifos® reports execution using the following curl example or through the Mifos Web App in the Reports Menu
 
 ```bash
     curl --location --request GET 'https://localhost:8443/fineract-provider/api/v1/runreports/Expected%20Payments%20By%20Date%20-%20Formatted?tenantIdentifier=default&locale=en&dateFormat=dd%20MMMM%20yyyy&R_startDate=01%20January%202022&R_endDate=02%20January%202023&R_officeId=1&output-type=PDF&R_loanOfficerId=-1' \
