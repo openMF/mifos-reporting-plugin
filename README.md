@@ -30,7 +30,7 @@
 
 ## For Developers
 
-This project is currently only tested against the very latest and greatest bleeding edge Apache Fineract® `develop` branch on Linux Ubuntu 24.04LTS. 
+This project is currently only tested against the very latest and greatest bleeding edge Apache Fineract® `develop` branch on Linux Ubuntu® 24.04LTS. 
 Building and using it against other Apache Fineract® versions may be possible, but is not tested or documented here.
 
 1. Download and compile
@@ -96,7 +96,7 @@ This is a separate question than the license that Pentaho® itself (i.e. the JAR
 ## Contribute
 
 If this Mifos® Reporting Plugin project is useful to you, please contribute back to it (and to Apache Fineract®) by raising Pull Requests yourself with any enhancements you make, and by helping to maintain this project by helping other users on Issues and reviewing PR from others (you will be promoted to committer on this project when you contribute).  
-We recommend that you _Watch_ and _Star_ this project on GitHub to make it easy to get notified.
+We recommend that you _Watch_ and _Star_ this project on GitHub® to make it easy to get notified.
 
 ## History
 
