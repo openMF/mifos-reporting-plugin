@@ -1,4 +1,4 @@
-# Pentaho Reporting Plugin for Apache Fineract
+# Pentaho Reporting Plugin for Apache Fineract®
 
 ## For Users
 
@@ -14,7 +14,7 @@
     export FINERACT_PENTAHO_REPORTS_PATH="$PWD/pentahoReports/"
 ```    
 
-3. [Download link for Fineract Pentaho Plugin ](https://sourceforge.net/projects/mifos/files/mifos-plugins/FineractPentahoPlugin/FineractPentahoPlugin-1.10.0.zip/download)  and extract the files (java jar files are on it)
+3. [Download link for Pentaho Plugin ](https://sourceforge.net/projects/mifos/files/mifos-plugins/FineractPentahoPlugin/FineractPentahoPlugin-1.10.0.zip/download)  and extract the files (java jar files are on it)
 
 4a. Execute only for DOCKER - Create a directory, copy the Fineract Pentaho Plugin and the Pentaho libraries in it
 
@@ -64,7 +64,7 @@ java -Dloader.path=$MIFOS_PENTAHO_PLUGIN_HOME/libs/ -jar $APACHE_FINERACT_HOME/f
 
 ![alt text](https://github.com/openMF/fineract-pentaho/blob/1.8/img/screenshot_pentaho_report.png?raw=true)
 
-The API call (above) should not fail if you follow the steps as shown, and all conditions met for the version of Apache Fineract
+The API call (above) should not fail if you follow the steps as shown, and all conditions met for the version of Apache Fineract®
 
 If the API call (above) [fails with](https://issues.apache.org/jira/browse/FINERACT-1173) 
 _`"There is no ReportingProcessService registered in the ReportingProcessServiceProvider for this report type: Pentaho"`_, 
@@ -77,7 +77,7 @@ See also [`PentahoReportsTest`](src/test/java/org/mifos/fineract/pentaho/Pentaho
 
 ## License
 
-This code used to be part of the Mifos codebase before it became Apache Fineract.
+This code used to be part of the Mifos codebase before it became Apache Fineract®.
 During that move, the Pentaho related code had to be removed, because Pentaho's license
 prevents code using it from being part of an Apache Software Foundation hosted project.
 
@@ -98,7 +98,7 @@ that you _Watch_ and _Star_ this project on GitHub to make it easy to get notifi
 
 ## History
 
-This is a [_Plugin_ for Apache Fineract](https://github.com/apache/fineract/blob/maintenance/1.6/fineract-doc/src/docs/en/deployment.adoc). The original work is this one https://github.com/vorburger/fineract-pentaho.
+This is a [_Plugin_ for Apache Fineract®](https://github.com/apache/fineract/blob/maintenance/1.6/fineract-doc/src/docs/en/deployment.adoc). The original work is this one https://github.com/vorburger/fineract-pentaho.
 
 See [TODO](TODO.md) for possible future follow-up enhancement work.
 
