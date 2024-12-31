@@ -31,7 +31,7 @@
 ## For Developers
 
 This project is currently only tested against the very latest and greatest
-bleeding edge Fineract `develop` branch on Linux Ubuntu 22.04LTS. Building and using it against
+bleeding edge Apache Fineract® `develop` branch on Linux Ubuntu 22.04LTS. Building and using it against
 other versions may be possible, but is not tested or documented here.
 
 1. Download and compile
@@ -46,7 +46,7 @@ other versions may be possible, but is not tested or documented here.
     export FINERACT_PENTAHO_REPORTS_PATH="$PWD/fineract-pentaho/pentahoReports/"
 ```    
 
-3. Execute Apache Fineract with the location of the Mifos Pentaho Plugin library for Apache Fineract
+3. Execute Apache Fineract with the location of the Mifos Pentaho Plugin library for Apache Fineract®
 
 ```bash
 java -Dloader.path=$MIFOS_PENTAHO_PLUGIN_HOME/libs/ -jar $APACHE_FINERACT_HOME/fineract-provider.jar
@@ -70,7 +70,7 @@ If the API call (above) [fails with](https://issues.apache.org/jira/browse/FINER
 _`"There is no ReportingProcessService registered in the ReportingProcessServiceProvider for this report type: Pentaho"`_, 
 then this Fineract Pentaho Plugin has not been correctly registered & loaded by Apache Fineract.
 
-Please note that the library will work using the latest Apache Fineract development branch (14th February 2024), also make sure you got installed the type fonts required by the reports. This Pentaho plugin will work only on Tomcat 10+. 
+Please note that the library will work using the latest Apache Fineract® development branch (30th December 2024), also make sure you got installed the type fonts required by the reports. This Pentaho plugin will work only on Tomcat 10+. 
 
 See also [`PentahoReportsTest`](src/test/java/org/mifos/fineract/pentaho/PentahoReportsTest.java) and the [`test`](test) script.
 
@@ -90,8 +90,8 @@ This is a separate question than the license that Pentaho itself (i.e. the JAR/s
 
 ## Contribute
 
-If this Fineract plugin project is useful to you, please contribute back to it (and
-Fineract) by raising Pull Requests yourself with any enhancements you make, and by helping
+If this plugin project is useful to you, please contribute back to it (and
+Apache Fineract®) by raising Pull Requests yourself with any enhancements you make, and by helping
 to maintain this project by helping other users on Issues and reviewing PR from others
 (you will be promoted to committer on this project when you contribute).  We recommend
 that you _Watch_ and _Star_ this project on GitHub to make it easy to get notified.
