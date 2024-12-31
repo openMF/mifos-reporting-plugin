@@ -1,8 +1,8 @@
-# Pentaho Reporting Plugin for Apache Fineract®
+# Pentaho® Reporting Plugin for Apache Fineract®
 
 ## For Users
 
-1. Create a directory for the Pentaho reports and copy the PRPT files in it 
+1. Create a directory for the Pentaho® reports and copy the PRPT files in it 
 
 ```bash
     mkdir pentahoReports
@@ -22,11 +22,11 @@
     mkdir fineract-pentaho  && cd fineract-pentaho
 ```
 
-4b. Execute only for TOMCAT - Copy the Pentaho Plugin and Pentaho libraries in $TOMCAT_HOME/webapps/fineract-provider/WEB-INF/lib/
+4b. Execute only for TOMCAT - Copy the Pentaho® Plugin and Pentaho® libraries in $TOMCAT_HOME/webapps/fineract-provider/WEB-INF/lib/
 
 5. Restart Docker or Tomcat
 
-6. Test the Pentaho Reports
+6. Test the Pentaho® Reports
 
 ## For Developers
 
@@ -52,7 +52,7 @@ other versions may be possible, but is not tested or documented here.
 java -Dloader.path=$MIFOS_PENTAHO_PLUGIN_HOME/libs/ -jar $APACHE_FINERACT_HOME/fineract-provider.jar
 ```
 
-4. Test the Pentaho Reports Execution using the following curl example or through the Mifos Web App in the Reports Menu
+4. Test the Pentaho® Reports Execution using the following curl example or through the Mifos Web App in the Reports Menu
 
 ```bash
     curl --location --request GET 'https://localhost:8443/fineract-provider/api/v1/runreports/Expected%20Payments%20By%20Date%20-%20Formatted?tenantIdentifier=default&locale=en&dateFormat=dd%20MMMM%20yyyy&R_startDate=01%20January%202022&R_endDate=02%20January%202023&R_officeId=1&output-type=PDF&R_loanOfficerId=-1' \
@@ -68,9 +68,9 @@ The API call (above) should not fail if you follow the steps as shown, and all c
 
 If the API call (above) [fails with](https://issues.apache.org/jira/browse/FINERACT-1173) 
 _`"There is no ReportingProcessService registered in the ReportingProcessServiceProvider for this report type: Pentaho"`_, 
-then this Pentaho Plugin has not been correctly registered & loaded by Apache Fineract®.
+then this Pentaho® Plugin has not been correctly registered & loaded by Apache Fineract®.
 
-Please note that the library will work using the latest Apache Fineract® development branch (30th December 2024), also make sure you got installed the type fonts required by the reports. This Pentaho plugin will work only on Tomcat 10+. 
+Please note that the library will work using the latest Apache Fineract® development branch (30th December 2024), also make sure you got installed the type fonts required by the reports. This Pentaho® plugin will work only on Tomcat 10+. 
 
 See also [`PentahoReportsTest`](src/test/java/org/mifos/fineract/pentaho/PentahoReportsTest.java) and the [`test`](test) script.
 
@@ -78,20 +78,21 @@ See also [`PentahoReportsTest`](src/test/java/org/mifos/fineract/pentaho/Pentaho
 ## License
 
 This code used to be part of the Mifos codebase before it became [Apache Fineract®](https://fineract.apache.org).
-During that move, the Pentaho related code had to be removed, because Pentaho's license
-prevents code using it from being part of an Apache Software Foundation hosted project.
+During that move, the Pentaho® related code had to be removed, because Pentaho®'s license
+prevents code using it from being part of an Apache Software Foundation® hosted project.
 
 The correct technical solution to resolve such conundrums is to use a plugin architecture - which is what this is.
 
 Note that the code and report templates in this git repo itself are
 [licensed to you under the Mozilla Public License 2.0 (MPL)](https://github.com/openMF/fineract-pentaho/blob/develop/LICENSE).
-This is a separate question than the license that Pentaho itself (i.e. the JAR/s of Pentaho) are made available under.
+This is a separate question than the license that Pentaho® itself (i.e. the JAR/s of Pentaho®) are made available under.
 
 ## Important
 
-* Mifos and Pentaho Plugin are not affiliated with, endorsed by, or otherwise associated with the Apache Software Foundation® (ASF) or any of its projects.
+* Mifos and Pentaho® Plugin are not affiliated with, endorsed by, or otherwise associated with the Apache Software Foundation® (ASF) or any of its projects.
 * Apache Software Foundation® is a vendor-neutral organization and it is an important part of the brand is that Apache Software Foundation® (ASF) projects are governed independently.
 * Apache Fineract®, Fineract, Apache, the Apache® feather, and the Apache Fineract® project logo are either registered trademarks or trademarks of the Apache Software Foundation®.
+* Mifos and Pentaho® Plugin are not affiliated with, endorsed by, or otherwise associated with Hitachi Vantara LLC or any of its projects.
 * Hitachi® and Hitachi Vantara® are registered trademarks of Hitachi, Ltd. in the U.S. and other countries. Pentaho® is a registered trademark of Hitachi Vantara LLC in the U.S. and other countries.
 
 ## Contribute
