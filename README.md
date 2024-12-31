@@ -16,13 +16,13 @@
 
 3. [Download link for Pentaho Plugin ](https://sourceforge.net/projects/mifos/files/mifos-plugins/FineractPentahoPlugin/FineractPentahoPlugin-1.10.0.zip/download)  and extract the files (java jar files are on it)
 
-4a. Execute only for DOCKER - Create a directory, copy the Fineract Pentaho Plugin and the Pentaho libraries in it
+4a. Execute only for DOCKER - Create a directory, copy the Pentaho Plugin and the Pentaho libraries in it
 
 ```bash
     mkdir fineract-pentaho  && cd fineract-pentaho
 ```
 
-4b. Execute only for TOMCAT - Copy the Fineract Pentaho Plugin and Pentaho libraries in $TOMCAT_HOME/webapps/fineract-provider/WEB-INF/lib/
+4b. Execute only for TOMCAT - Copy the Pentaho Plugin and Pentaho libraries in $TOMCAT_HOME/webapps/fineract-provider/WEB-INF/lib/
 
 5. Restart Docker or Tomcat
 
@@ -31,7 +31,7 @@
 ## For Developers
 
 This project is currently only tested against the very latest and greatest
-bleeding edge Apache Fineract® `develop` branch on Linux Ubuntu 22.04LTS. Building and using it against
+bleeding edge Apache Fineract® `develop` branch on Linux Ubuntu 24.04LTS. Building and using it against
 other versions may be possible, but is not tested or documented here.
 
 1. Download and compile
@@ -46,7 +46,7 @@ other versions may be possible, but is not tested or documented here.
     export FINERACT_PENTAHO_REPORTS_PATH="$PWD/fineract-pentaho/pentahoReports/"
 ```    
 
-3. Execute Apache Fineract with the location of the Mifos Pentaho Plugin library for Apache Fineract®
+3. Execute Apache Fineract® with the location of the Pentaho Plugin library
 
 ```bash
 java -Dloader.path=$MIFOS_PENTAHO_PLUGIN_HOME/libs/ -jar $APACHE_FINERACT_HOME/fineract-provider.jar
@@ -60,7 +60,7 @@ java -Dloader.path=$MIFOS_PENTAHO_PLUGIN_HOME/libs/ -jar $APACHE_FINERACT_HOME/f
 --header 'Authorization: Basic bWlmb3M6cGFzc3dvcmQ='
 ```
 
-5. The output must be a PDF with the Expected Payment By Date Formated information in it (maybe it could have blank or zeroes if it is a fresh Fineract Setup)
+5. The output must be a PDF with the Expected Payment By Date Formated information in it (maybe it could have blank or zeroes if it is a fresh Apache Fineract® setup)
 
 ![alt text](https://github.com/openMF/fineract-pentaho/blob/1.8/img/screenshot_pentaho_report.png?raw=true)
 
@@ -68,7 +68,7 @@ The API call (above) should not fail if you follow the steps as shown, and all c
 
 If the API call (above) [fails with](https://issues.apache.org/jira/browse/FINERACT-1173) 
 _`"There is no ReportingProcessService registered in the ReportingProcessServiceProvider for this report type: Pentaho"`_, 
-then this Fineract Pentaho Plugin has not been correctly registered & loaded by Apache Fineract.
+then this Pentaho Plugin has not been correctly registered & loaded by Apache Fineract®.
 
 Please note that the library will work using the latest Apache Fineract® development branch (30th December 2024), also make sure you got installed the type fonts required by the reports. This Pentaho plugin will work only on Tomcat 10+. 
 
