@@ -77,7 +77,7 @@ See also [`PentahoReportsTest`](src/test/java/org/mifos/fineract/pentaho/Pentaho
 
 ## License
 
-This code used to be part of the Mifos codebase before it became Apache Fineract®.
+This code used to be part of the Mifos codebase before it became [Apache Fineract®](https://fineract.apache.org).
 During that move, the Pentaho related code had to be removed, because Pentaho's license
 prevents code using it from being part of an Apache Software Foundation hosted project.
 
@@ -90,10 +90,9 @@ This is a separate question than the license that Pentaho itself (i.e. the JAR/s
 ## Important
 
 * Mifos and Pentaho Plugin are not affiliated with, endorsed by, or otherwise associated with the Apache Software Foundation® (ASF) or any of its projects.
-* Apache Software Foundation® is a vendor-neutral organization, and an important part of the brand is that Apache Software Foundation® (ASF projects are governed independently.
+* Apache Software Foundation® is a vendor-neutral organization and it is an important part of the brand is that Apache Software Foundation® (ASF) projects are governed independently.
 * Apache Fineract®, Fineract, Apache, the Apache® feather, and the Apache Fineract® project logo are either registered trademarks or trademarks of the Apache Software Foundation®.
-
-[Apache Fineract](https://fineract.apache.org)
+* Hitachi® and Hitachi Vantara® are registered trademarks of Hitachi, Ltd. in the U.S. and other countries. Pentaho® is a registered trademark of Hitachi Vantara LLC in the U.S. and other countries.
 
 ## Contribute
 
