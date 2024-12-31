@@ -87,6 +87,13 @@ Note that the code and report templates in this git repo itself are
 [licensed to you under the Mozilla Public License 2.0 (MPL)](https://github.com/openMF/fineract-pentaho/blob/develop/LICENSE).
 This is a separate question than the license that Pentaho itself (i.e. the JAR/s of Pentaho) are made available under.
 
+## Important
+
+* Mifos and Pentaho Plugin are not affiliated with, endorsed by, or otherwise associated with the Apache Software Foundation® (ASF) or any of its projects.
+* Apache Software Foundation® is a vendor-neutral organization, and an important part of the brand is that Apache Software Foundation® (ASF projects are governed independently.
+* Apache Fineract®, Fineract, Apache, the Apache® feather, and the Apache Fineract® project logo are either registered trademarks or trademarks of the Apache Software Foundation®.
+
+[Apache Fineract](https://fineract.apache.org)
 
 ## Contribute
 
