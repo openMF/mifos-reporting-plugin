@@ -37,7 +37,7 @@ Building and using it against other Apache Fineract® versions may be possible, 
 
 ```bash
     git clone https://github.com/openMF/fineract-pentaho.git
-    cd fineract-pentaho && ./mvnw -Dmaven.test.skip=true clean package && cd ..
+    cd mifos-reporting-plugin && ./mvnw -Dmaven.test.skip=true clean package && cd ..
 ```
 2. Export the Location of Mifos® reports (PRPT files) in the following variable
 
