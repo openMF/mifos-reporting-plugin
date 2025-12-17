@@ -1,0 +1,28 @@
+name: Java CI with Maven
+
+on:
+  push:
+    branches: [ "develop" ]
+  pull_request:
+    branches: [ "develop" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'zulu'
+        cache: 'maven'
+
+    - name: Build with Maven
+      # -DskipTests: Compiles tests but does not run them (avoids localhost:8443 error)
+      # -B: Batch mode
+      # -U: Force update snapshots
+      run: mvn -B clean verify -U -DskipTests --file pom.xml
