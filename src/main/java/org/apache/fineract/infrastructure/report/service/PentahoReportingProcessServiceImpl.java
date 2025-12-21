@@ -21,8 +21,8 @@ import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.sql.Driver;
-import java.sql.DriverManager;
+import java.io.Serializable;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -35,14 +35,11 @@ import javax.sql.DataSource;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.api.ApiParameterHelper;
 import org.apache.fineract.infrastructure.core.config.FineractProperties;
-import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
-import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.core.service.database.DatabasePasswordEncryptor;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.report.annotation.ReportService;
-import org.apache.fineract.infrastructure.security.constants.TenantConstants;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.pentaho.reporting.engine.classic.core.ClassicEngineBoot;
 import org.pentaho.reporting.engine.classic.core.CompoundDataFactory;
@@ -52,7 +49,7 @@ import org.pentaho.reporting.engine.classic.core.Element;
 import org.pentaho.reporting.engine.classic.core.MasterReport;
 import org.pentaho.reporting.engine.classic.core.Section;
 import org.pentaho.reporting.engine.classic.core.SubReport;
-import org.pentaho.reporting.engine.classic.core.modules.misc.datafactory.sql.DriverConnectionProvider;
+import org.pentaho.reporting.engine.classic.core.modules.misc.datafactory.sql.ConnectionProvider;
 import org.pentaho.reporting.engine.classic.core.modules.misc.datafactory.sql.SQLReportDataFactory;
 import org.pentaho.reporting.engine.classic.core.modules.output.pageable.pdf.PdfReportUtil;
 import org.pentaho.reporting.engine.classic.core.modules.output.table.csv.CSVReportUtil;
@@ -118,11 +115,13 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
     }
     for (int i = 0; i < section.getElementCount(); i++) {
       Element element = section.getElement(i);
-      if (element instanceof SubReport subReport) {
+      if (element instanceof SubReport) {
+        SubReport subReport = (SubReport) element;
         subReports.add(subReport);
         // Recursively collect subreports within subreports
         for (int j = 0; j < subReport.getElementCount(); j++) {
-          if (subReport.getElement(j) instanceof Section subSection) {
+          if (subReport.getElement(j) instanceof Section) {
+            Section subSection = (Section) subReport.getElement(j);
             collectSubReports(subSection, subReports);
           }
         }
@@ -152,12 +151,9 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
           "error.msg.invalid.outputType", "No matching Output Type: " + outputType);
     }
 
-    // final var reportPath = mifosBaseDir + File.separator + "pentahoReports" + File.separator +
-    // reportName +
-    // ".prpt";
     String reportPath;
-    logger.debug("locale " + locale);
-    logger.debug("language " + language);
+    logger.debug("locale {}", locale);
+    logger.debug("language {}", language);
     if (!"en".equals(locale.toString().toLowerCase()) && locale != null) {
       reportPath = getReportPath() + reportName + "_" + locale.toString().toLowerCase() + ".prpt";
     } else {
@@ -251,11 +247,6 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       final var rptParamValues = report.getParameterValues();
       final var paramsDefinition = report.getParameterDefinition();
 
-      // only allow integer, long, date and string parameter types and assume all mandatory - could
-      // go more
-      // detailed like Pawel did in Mifos later and could match incoming and Pentaho parameters
-      // better...
-      // currently assuming they come in ok... and if not an error
       for (final ParameterDefinitionEntry paramDefEntry :
           paramsDefinition.getParameterDefinitions()) {
         final var paramName = paramDefEntry.getName();
@@ -305,9 +296,6 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
         }
       }
 
-      // Tenant database name and current user's office hierarchy
-      // passed as parameters to allow multitenant Pentaho reporting
-      // and data scoping
       final var tenant = ThreadLocalContextUtil.getTenant();
       final var tenantConnection = tenant.getConnection();
       String protocol = toProtocol(this.tenantDataSource);
@@ -321,7 +309,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
               tenantConnection.getSchemaConnectionParameters());
 
       final var userhierarchy = currentUser.getOffice().getHierarchy();
-      logger.debug("userhierarchy " + userhierarchy);
+      logger.debug("userhierarchy {}", userhierarchy);
       var outPutInfo4 = "db URL:" + tenantUrl + "      userhierarchy:" + userhierarchy;
       logger.debug(outPutInfo4);
 
@@ -332,7 +320,6 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       logger.debug(outPutInfo5);
 
       rptParamValues.put("userid", userid);
-
       rptParamValues.put("tenantUrl", tenantUrl.trim());
 
       if (tenantConnection.getSchemaUsername().equalsIgnoreCase("")
@@ -381,82 +368,20 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
   }
 
   private void setConnectionDetail(DataFactory dataFactory) throws SQLException {
-    final FineractPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
-    final FineractPlatformTenantConnection tenantConnection = tenant.getConnection();
-
+    // Updated: Use the injected DataSource instead of manual DriverManager connection
     if (dataFactory instanceof SQLReportDataFactory) {
       SQLReportDataFactory sqlReportDataFactory = (SQLReportDataFactory) dataFactory;
-      final DriverConnectionProvider connectionProvider =
-          (DriverConnectionProvider) sqlReportDataFactory.getConnectionProvider();
-
-      Driver e = DriverManager.getDriver(getTenantUrl());
-      // Printing the driver
-      logger.debug("Driver: " + e.getClass().getName().toString());
-      connectionProvider.setDriver(e.getClass().getName().toString());
-      connectionProvider.setUrl(getTenantUrl());
-      connectionProvider.setProperty("user", tenantConnection.getSchemaUsername());
-      logger.debug("{}", tenantConnection.getSchemaUsername());
-      connectionProvider.setProperty(
-          "password",
-          databasePasswordEncryptor.decrypt(tenantConnection.getSchemaPassword()).trim());
-      sqlReportDataFactory.setConnectionProvider(connectionProvider);
+      sqlReportDataFactory.setConnectionProvider(
+          new FineractDataSourceConnectionProvider(this.tenantDataSource));
     }
   }
 
   private String getTenantUrl() {
-    final FineractPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
-    final FineractPlatformTenantConnection tenantConnection = tenant.getConnection();
-    String protocol = toProtocol(tenantDataSource);
-    // Default properties for Writing
-    String schemaServer = tenantConnection.getSchemaServer();
-    String schemaPort = tenantConnection.getSchemaServerPort();
-    String schemaName = tenantConnection.getSchemaName();
-    String schemaUsername = tenantConnection.getSchemaUsername();
-    String schemaPassword = tenantConnection.getSchemaPassword();
-    String schemaConnectionParameters = tenantConnection.getSchemaConnectionParameters();
-    // Properties to ReadOnly case
-    if (fineractProperties.getMode().isReadOnlyMode()) {
-      schemaServer =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaServer(),
-              TenantConstants.PROPERTY_RO_SCHEMA_SERVER_NAME,
-              schemaServer);
-      schemaPort =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaServerPort(),
-              TenantConstants.PROPERTY_RO_SCHEMA_SERVER_PORT,
-              schemaPort);
-      schemaName =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaName(),
-              TenantConstants.PROPERTY_RO_SCHEMA_SCHEMA_NAME,
-              schemaName);
-      schemaUsername =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaUsername(),
-              TenantConstants.PROPERTY_RO_SCHEMA_USERNAME,
-              schemaUsername);
-      schemaPassword =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaPassword(),
-              TenantConstants.PROPERTY_RO_SCHEMA_PASSWORD,
-              schemaPassword);
-      schemaConnectionParameters =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaConnectionParameters(),
-              TenantConstants.PROPERTY_RO_SCHEMA_CONNECTION_PARAMETERS,
-              schemaConnectionParameters);
-    }
-    String jdbcUrl =
-        toJdbcUrl(protocol, schemaServer, schemaPort, schemaName, schemaConnectionParameters);
-    logger.debug("{}", jdbcUrl);
-
-    return jdbcUrl;
+    return "N/A"; // Legacy method, no longer used for connection creation
   }
 
   private String getPropertyValue(
       final String baseValue, final String propertyName, final String defaultValue) {
-    // If the property already has set, return It
     if (null != baseValue) {
       return baseValue;
     }
@@ -469,5 +394,36 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
   @Override
   public List<ReportExportType> getAvailableExportTargets() {
     throw new UnsupportedOperationException("Not supported yet.");
+  }
+
+  /**
+   * Implements the <b>Adapter Pattern</b> to bridge Spring's {@link DataSource} with Pentaho's
+   * {@link ConnectionProvider}.
+   *
+   * <p>This class delegates connection acquisition to the underlying {@link DataSource} (e.g.,
+   * HikariCP), ensuring that report generation reuses the existing connection pool rather than
+   * opening new physical connections.
+   */
+  private static class FineractDataSourceConnectionProvider
+      implements ConnectionProvider, Serializable {
+
+    private final transient DataSource dataSource;
+
+    public FineractDataSourceConnectionProvider(DataSource dataSource) {
+      this.dataSource = dataSource;
+    }
+
+    @Override
+    public Connection createConnection(String user, String password) throws SQLException {
+      // We ignore the user/password passed by Pentaho because the DataSource
+      // is already pre-configured with the correct tenant credentials.
+      return dataSource.getConnection();
+    }
+
+    @Override
+    public Object getConnectionHash() {
+      // Using hashcode to identify unique data sources for Pentaho's internal caching
+      return dataSource.hashCode();
+    }
   }
 }
