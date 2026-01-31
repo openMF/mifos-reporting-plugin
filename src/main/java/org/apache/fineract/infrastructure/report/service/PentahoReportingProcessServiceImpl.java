@@ -78,6 +78,9 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
 
   @Value("${FINERACT_PENTAHO_REPORTS_PATH}")
   private String fineractPentahoBaseDir;
+  
+  @Value("${FINERACT_PENTAHO_REPORTS_LOCALE}")
+  private String fineractPentahoLocale;
 
   private final PlatformSecurityContext context;
   private final DataSource tenantDataSource;
@@ -176,9 +179,15 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       setConnectionDetail(compoundDataFactory.get(0));
 
       final var reportEnvironment = (DefaultReportEnvironment) masterReport.getReportEnvironment();
-      if (locale != null) {
+      
+      if(fineractPentahoLocale !=null){          
+          Locale localeReport = new Locale.Builder().setLanguageTag(fineractPentahoLocale).build();
+          reportEnvironment.setLocale(localeReport);
+      }
+      else if (locale != null && fineractPentahoLocale==null) {
         reportEnvironment.setLocale(locale);
       }
+      
 
       addParametersToReport(masterReport, reportParams);
 
