@@ -218,8 +218,103 @@
             <artifactId>truth</artifactId>            
             <version>${truth.version}</version>
             <scope>compile</scope>            
-	</dependency>            
+	</dependency>       
+    
+    <!-- New dependencies MX-111 -->
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.report.engine</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.report.data.adapter</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.report.engine.emitter.pdf</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.report.engine.emitter.config.pdf</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.report.engine.fonts</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.data</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.core.script.function</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.report.engine.script.javascript</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.report.data.oda.jdbc</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <!-- more formats -->
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>uk.co.spudsoft.birt.emitters.excel</artifactId>
+        <version>4.22.0</version> 
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.report.engine.emitter.prototype.excel</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.report.engine.emitter.html</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.report.engine.emitter.config.html</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.birt</groupId>
+        <artifactId>org.eclipse.birt.report.engine.dataextraction.csv</artifactId>
+        <version>4.22.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>io.github.jamestoney311</groupId>
+        <artifactId>org.eclipse.birt.report.engine.emitter.csv</artifactId>
+        <version>1.0.7</version>
+    </dependency>
+
     </dependencies>
+    
 
     <build>
         <pluginManagement>
@@ -255,50 +350,101 @@
         </pluginManagement>
     </build>
 
-    <repositories>        
+    <repositories>
+        <!-- MAVEN CENTRAL PRIMERO - Máxima prioridad -->
+        <repository>
+            <id>central</id>
+            <name>Maven Central</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>daily</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+
+        <!-- Hitachi Vantara - Para Pentaho -->
         <repository>
             <id>hitachivantara</id>
             <name>hitachivantara</name>
             <url>https://hitachiedge1.jfrog.io/artifactory/pnt-mvn/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
             <snapshots>
                 <enabled>false</enabled>
             </snapshots>
-        </repository>        
-        <repository>          
-          <id>fineract-release</id>
-          <name>libs-release-local</name>
-          <url>https://mifos.jfrog.io/artifactory/libs-release-local</url>
-          <snapshots>
-                <enabled>true</enabled>
-          </snapshots>
         </repository>
-        <repository>          
-          <id>fineract-snapshot</id>
-          <name>libs-snapshot-local</name>
-          <url>https://mifos.jfrog.io/artifactory/libs-snapshot-local</url>
-        </repository>        
-        <repository>
-            <id>oss-sonatype</id>
-            <name>oss-sonatype</name>
-            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
-        </repository>
-        <repository>
-            <id>spring-snapshots</id>
-            <name>Spring Snapshots</name>
-            <url>https://repo.spring.io/snapshot</url>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
-        </repository>
+
+        <!-- Spring repos -->
         <repository>
             <id>spring-milestones</id>
             <name>Spring Milestones</name>
             <url>https://repo.spring.io/milestone</url>
-        </repository>        
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+
+        <repository>
+            <id>spring-snapshots</id>
+            <name>Spring Snapshots</name>
+            <url>https://repo.spring.io/snapshot</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+
+        <repository>
+            <id>oss-sonatype</id>
+            <name>oss-sonatype</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+
+        <!-- FINERACT AL FINAL - Solo para artefactos específicos de Fineract -->
+        <repository>
+            <id>fineract-release</id>
+            <name>libs-release-local</name>
+            <url>https://mifos.jfrog.io/artifactory/libs-release-local</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+            </snapshots>
+        </repository>
+
+        <repository>
+            <id>fineract-snapshot</id>
+            <name>libs-snapshot-local</name>
+            <url>https://mifos.jfrog.io/artifactory/libs-snapshot-local</url>
+            <releases>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+            </snapshots>
+        </repository>
     </repositories>
+
     <pluginRepositories>
         <pluginRepository>
             <id>spring-snapshots</id>
