@@ -351,7 +351,6 @@
     </build>
 
     <repositories>
-        <!-- MAVEN CENTRAL PRIMERO - Máxima prioridad -->
         <repository>
             <id>central</id>
             <name>Maven Central</name>
@@ -365,7 +364,6 @@
             </snapshots>
         </repository>
 
-        <!-- Hitachi Vantara - Para Pentaho -->
         <repository>
             <id>hitachivantara</id>
             <name>hitachivantara</name>
@@ -378,7 +376,6 @@
             </snapshots>
         </repository>
 
-        <!-- Spring repos -->
         <repository>
             <id>spring-milestones</id>
             <name>Spring Milestones</name>
@@ -415,7 +412,6 @@
             </snapshots>
         </repository>
 
-        <!-- FINERACT AL FINAL - Solo para artefactos específicos de Fineract -->
         <repository>
             <id>fineract-release</id>
             <name>libs-release-local</name>
