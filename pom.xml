@@ -10,13 +10,13 @@
     </parent>
     <groupId>community.mifos</groupId>
     <artifactId>pentaho-plugin</artifactId>
-    <version>1.14.0-SNAPSHOT</version>
+    <version>1.15.0-SNAPSHOT</version>
     <name>pentaho-plugin</name>
     <description>Mifos Pentaho Reporting Plugin for Apache Fineract</description>
 
     <properties>
         <java.version>21</java.version>
-        <fineract.version>0.0.1323-6552adc</fineract.version>
+        <fineract.version>0.0.1334-c58fb65</fineract.version>
         <pentaho.version>9.4.0.0-343</pentaho.version>
         <graal.version>24.2.2</graal.version>
         <eclipselink.version>4.0.9</eclipselink.version>
@@ -212,6 +212,12 @@
             <artifactId>fineract-report</artifactId>
             <version>${fineract.version}</version>
             <scope>compile</scope>            
+	</dependency>
+        <dependency>
+            <groupId>org.apache.fineract</groupId>
+            <artifactId>fineract-security</artifactId>
+            <version>${fineract.version}</version>
+            <scope>compile</scope>
 	</dependency>
         <dependency>
             <groupId>com.google.truth</groupId>
