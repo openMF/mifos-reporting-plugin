@@ -1,17 +1,21 @@
 # Mifos® Reporting Plugin for Apache Fineract®
 
+## Overview
+
+This is the **Eclipse BIRT (Business Intelligence and Reporting Tools)** edition of the Mifos® X Reporting Plugin for Apache Fineract®. It replaces the legacy Pentaho-based reporting system with a modern and lightweight reporting engine
+
 ## For Users
 
-1. Create a directory for the Mifos® reports and copy the PRPT files in it 
+1. Create a directory for the Mifos® reports and copy the RPTDESIGN files in it 
 
 ```bash
-    mkdir pentahoReports
+    mkdir birtReports
 ```
 
 2. Export the FINERACT_PENTAHO_REPORTS_PATH variable
 
 ```bash
-    export FINERACT_PENTAHO_REPORTS_PATH="$PWD/pentahoReports/"
+    export FINERACT_BIRT_REPORTS_PATH="$PWD/birtReports/"
 ```    
 
 3. Download the Mifos® Security Plugin and extract the files (all the libraries required for running it are included). **It is very important to use the specific version according to the Apache Fineract**
@@ -21,13 +25,13 @@
 | 1.12.0   | 1.12.1     | [Mifos® Security Plugin v1.12.1](https://sourceforge.net/projects/mifos/files/mifos-plugins/MifosReportingPlugin/MifosSecurityPlugin-1.12.1.zip/download)     |
 | 1.11.0     | 1.11.0       | [Mifos® Security Plugin v1.11.0](https://sourceforge.net/projects/mifos/files/mifos-plugins/MifosReportingPlugin/FineractPentahoPlugin-1.11.zip/download)      |
 
-4a. Execute only for Docker® - Create a directory, copy the Mifos® Reporting Plugin and the Pentaho® libraries in it
+4a. Execute only for Docker® - Create a directory, copy the Mifos® BIRT Plugin and the Eclipse BIRT libraries in it
 
 ```bash
-    mkdir fineract-pentaho  && cd fineract-pentaho
+    mkdir fineract-birt  && cd fineract-birt
 ```
 
-4b. Execute only for Apache Tomcat® - Copy the Mifos® Reporting Plugin and Pentaho® libraries in $TOMCAT_HOME/webapps/fineract-provider/WEB-INF/lib/
+4b. Execute only for Apache Tomcat® - Copy the Mifos® BIRT Plugin and Eclipse BIRT libraries in $TOMCAT_HOME/webapps/fineract-provider/WEB-INF/lib/
 
 5. Restart Docker® or Apache Tomcat®
 
@@ -41,54 +45,52 @@ Building and using it against other Apache Fineract® versions may be possible, 
 1. Download and compile
 
 ```bash
-    git clone https://github.com/openMF/mifos-reporting-plugin.git
-    cd mifos-reporting-plugin && ./mvnw -Dmaven.test.skip=true clean package && cd ..
+    git clone https://github.com/openMF/mifos-x-reporting-plugin-birt.git
+    cd mifos-x-reporting-plugin-birt && ./mvnw -Dmaven.test.skip=true clean package && cd ..
 ```
-2. Export the Location of Mifos® reports (PRPT files) in the following variable
+2. Export the Location of Mifos® reports (RPTDESIGN files) in the following variable
 
 ```bash
-    export FINERACT_PENTAHO_REPORTS_PATH="$PWD/fineract-pentaho/pentahoReports/"
-```    
+    export FINERACT_BIRT_REPORTS_PATH="$PWD/birtReports/"
+```   
 
-3. Execute Apache Fineract® with the location of the Mifos® Reporting Plugin library
+3. Execute Apache Fineract® with the location of the Mifos® BIRT Plugin library
 
 ```bash
-java -Dloader.path=$MIFOS_PENTAHO_PLUGIN_HOME/libs/ -jar $APACHE_FINERACT_HOME/fineract-provider.jar
+java -Dloader.path=$MIFOS_BIRT_PLUGIN_HOME/libs/ -jar $APACHE_FINERACT_HOME/fineract-provider.jar
 ```
 
 4. Test the Mifos® reports execution using the following curl example or through the Mifos Web App in the Reports Menu
 
 ```bash
-    curl --location --request GET 'https://localhost:8443/fineract-provider/api/v1/runreports/Expected%20Payments%20By%20Date%20-%20Formatted?tenantIdentifier=default&locale=en&dateFormat=dd%20MMMM%20yyyy&R_startDate=01%20January%202022&R_endDate=02%20January%202023&R_officeId=1&output-type=PDF&R_loanOfficerId=-1' \
+    curl --location --request GET 'https://localhost:8443/fineract-provider/api/v1/runreports/Active%20Loans%20-%20Details?tenantIdentifier=default&locale=en&dateFormat=dd%20MMMM%20yyyy&R_startDate=01%20January%202022&R_endDate=02%20January%202023&R_officeId=1&output-type=PDF&R_loanOfficerId=-1' \
 --header 'Fineract-Platform-TenantId: default' \
 --header 'Authorization: Basic bWlmb3M6cGFzc3dvcmQ='
 ```
 
-5. The output must be a PDF with the Expected Payment By Date Formated information in it (maybe it could have blank or zeroes if it is a fresh Apache Fineract® setup)
 
+5. The output must be a PDF with the Active Loans Details information in it (maybe it could have blank or zeroes if it is a fresh Apache Fineract® setup)
 ![alt text](https://github.com/openMF/fineract-pentaho/blob/1.8/img/screenshot_pentaho_report.png?raw=true)
 
 The API call (above) should not fail if you follow the steps as shown, and all conditions met for the version of Apache Fineract®
 
-If the API call (above) [fails with](https://issues.apache.org/jira/browse/FINERACT-1173) 
-_`"There is no ReportingProcessService registered in the ReportingProcessServiceProvider for this report type: Pentaho"`_, 
-then this Pentaho® Plugin has not been correctly registered & loaded by Apache Fineract®.
+If the API call (above) fails, then this BIRT® Plugin has not been correctly registered & loaded by Apache Fineract®.
 
-Please note that the library will work using the latest Apache Fineract® development branch (30th December 2024), also make sure you got installed the type fonts required by the reports. This Mifos® Reporting Plugin will work only on Apache Tomcat® version 10+. 
+Please note that the library will work using the latest Apache Fineract® development branch, also make sure you got installed the type fonts required by the reports. This Mifos® Reporting Plugin will work only on Apache Tomcat® version 10+.
 
-See also [`PentahoReportsTest`](src/test/java/org/mifos/fineract/pentaho/PentahoReportsTest.java) and the [`test`](test) script.
-
+See also [`BirtReportingProcessServiceImplTest`](src/test/java/org/apache/fineract/infrastructure/report/service/BirtReportingProcessServiceImplTest.java) and the [`test`](test) script.
 
 ## License
 
 This code used to be part of the Mifos® codebase before it became [Apache Fineract®](https://fineract.apache.org).
 During that move, the Pentaho® related code had to be removed, because Pentaho®'s license prevents code using it from being part of an Apache Software Foundation® hosted project.
+This BIRT® Plugin is a modern replacement that addresses the maintenance issues of the previous Pentaho implementation.
 
 The correct technical solution to resolve such conundrums is to use a plugin architecture - which is what this is.
 
 Note that the code and report templates in this git repo itself are
-[licensed to you under the Mozilla® Public License 2.0 (MPL)](https://github.com/openMF/mifos-reporting-plugin/blob/develop/LICENSE).
-This is a separate question than the license that Pentaho® itself (i.e. the JAR/s of Pentaho®) are made available under.
+[licensed to you under the Mozilla® Public License 2.0 (MPL)](https://github.com/openMF/mifos-x-reporting-plugin-birt/blob/dev/LICENSE).
+This is a separate question than the license that Eclipse BIRT® itself (i.e. the JAR/s of Eclipse BIRT®) are made available under.
 
 ## Important
 
@@ -102,13 +104,3 @@ This is a separate question than the license that Pentaho® itself (i.e. the JAR
 
 If this Mifos® Reporting Plugin project is useful to you, please contribute back to it (and to Apache Fineract®) by raising Pull Requests yourself with any enhancements you make, and by helping to maintain this project by helping other users on Issues and reviewing PR from others (you will be promoted to committer on this project when you contribute).  
 We recommend that you _Watch_ and _Star_ this project on GitHub® to make it easy to get notified.
-
-## History
-
-This is a [Mifos® Reporting Plugin for Apache Fineract®](https://github.com/apache/fineract/blob/maintenance/1.6/fineract-doc/src/docs/en/deployment.adoc). The original work is this one https://github.com/vorburger/fineract-pentaho.
-
-See [TODO](TODO.md) for possible future follow-up enhancement work.
-
-The Mifos® Reporting Plugin has been updated to the Pentaho® version 9.5, please use the [`Pentaho® Report Designer version 9.5`](https://mifos.jfrog.io/artifactory/libs-snapshot-local/org/pentaho/reporting/prd-ce/9.5.0.0-SNAPSHOT/prd-ce-9.5.0.0-20230108.081758-1.zip) 
-
-
