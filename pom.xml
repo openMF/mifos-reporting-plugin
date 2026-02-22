@@ -22,6 +22,8 @@
         <truth.version>1.4.5</truth.version>
         <birt.version>4.22.0</birt.version>
         <icu4j.version>78.2</icu4j.version>
+        <spotless.version>3.2.1</spotless.version>
+        <google-java-format.version>1.17.0</google-java-format.version>
     </properties>
 
     <dependencies>
@@ -38,45 +40,38 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>jakarta.ws.rs</groupId>
             <artifactId>jakarta.ws.rs-api</artifactId>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.eclipse.persistence</groupId>
             <artifactId>eclipselink</artifactId>
             <version>${eclipselink.version}</version>
-            <scope>compile</scope>
         </dependency>
+
         <dependency>
             <groupId>org.apache.fineract</groupId>
             <artifactId>fineract-provider</artifactId>
             <version>${fineract.version}</version>
             <classifier>plain</classifier>
-            <scope>compile</scope>
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.fineract</groupId>
@@ -88,19 +83,16 @@
             <groupId>org.apache.fineract</groupId>
             <artifactId>fineract-client</artifactId>
             <version>${fineract.version}</version>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.fineract</groupId>
             <artifactId>fineract-core</artifactId>
             <version>${fineract.version}</version>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.fineract</groupId>
             <artifactId>fineract-report</artifactId>
             <version>${fineract.version}</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -123,49 +115,21 @@
             <artifactId>org.eclipse.birt.report.engine.fonts</artifactId>
             <version>${birt.version}</version>
         </dependency>
-
-        <dependency>
-            <groupId>org.eclipse.birt</groupId>
-            <artifactId>org.eclipse.birt.report.engine.emitter.pdf</artifactId>
-            <version>${birt.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.eclipse.birt</groupId>
-            <artifactId>uk.co.spudsoft.birt.emitters.excel</artifactId>
-            <version>${birt.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.birt</groupId>
-            <artifactId>org.eclipse.birt.report.engine.emitter.prototype.excel</artifactId>
-            <version>${birt.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.birt</groupId>
-            <artifactId>org.eclipse.birt.report.engine.emitter.config.excel</artifactId>
-            <version>${birt.version}</version>
-        </dependency>
-
         <dependency>
             <groupId>org.eclipse.birt</groupId>
             <artifactId>org.eclipse.birt.data</artifactId>
             <version>${birt.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.eclipse.birt</groupId>
             <artifactId>org.eclipse.birt.report.data.oda.jdbc</artifactId>
             <version>${birt.version}</version>
         </dependency>
-
-
-
         <dependency>
             <groupId>org.eclipse.birt</groupId>
             <artifactId>org.eclipse.birt.chart.engine</artifactId>
             <version>${birt.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.eclipse.birt</groupId>
             <artifactId>org.eclipse.birt.core.script.function</artifactId>
@@ -176,23 +140,6 @@
             <artifactId>org.eclipse.birt.report.engine.script.javascript</artifactId>
             <version>${birt.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.eclipse.birt</groupId>
-            <artifactId>org.eclipse.birt.report.engine.emitter.html</artifactId>
-            <version>${birt.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.eclipse.birt</groupId>
-            <artifactId>org.eclipse.birt.report.engine.dataextraction</artifactId>
-            <version>${birt.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.jamestoney311</groupId>
-            <artifactId>org.eclipse.birt.report.engine.emitter.csv</artifactId>
-            <version>1.0.7</version>
-        </dependency>
-
         <dependency>
             <groupId>org.eclipse.birt</groupId>
             <artifactId>org.eclipse.birt.data.aggregation</artifactId>
@@ -208,6 +155,57 @@
             <artifactId>org.eclipse.birt.chart.reportitem</artifactId>
             <version>${birt.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.eclipse.birt</groupId>
+            <artifactId>org.eclipse.birt.report.engine.dataextraction</artifactId>
+            <version>${birt.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.birt</groupId>
+            <artifactId>org.eclipse.birt.report.engine.emitter.pdf</artifactId>
+            <version>${birt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.birt</groupId>
+            <artifactId>org.eclipse.birt.report.engine.emitter.config.pdf</artifactId>
+            <version>${birt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.birt</groupId>
+            <artifactId>org.eclipse.birt.report.engine.emitter.html</artifactId>
+            <version>${birt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.birt</groupId>
+            <artifactId>org.eclipse.birt.report.engine.emitter.config.html</artifactId>
+            <version>${birt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.birt</groupId>
+            <artifactId>uk.co.spudsoft.birt.emitters.excel</artifactId>
+            <version>${birt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.birt</groupId>
+            <artifactId>org.eclipse.birt.report.engine.emitter.prototype.excel</artifactId>
+            <version>${birt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.birt</groupId>
+            <artifactId>org.eclipse.birt.report.engine.emitter.config.excel</artifactId>
+            <version>${birt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.birt</groupId>
+            <artifactId>org.eclipse.birt.report.engine.dataextraction.csv</artifactId>
+            <version>${birt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.jamestoney311</groupId>
+            <artifactId>org.eclipse.birt.report.engine.emitter.csv</artifactId>
+            <version>1.0.7</version>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -218,122 +216,26 @@
             <groupId>com.google.truth</groupId>
             <artifactId>truth</artifactId>
             <version>${truth.version}</version>
-            <scope>compile</scope>            
-	</dependency>       
-    
-    <!-- New dependencies MX-111 -->
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.report.engine</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.report.data.adapter</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.report.engine.emitter.pdf</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.report.engine.emitter.config.pdf</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.report.engine.fonts</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.data</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.core.script.function</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.report.engine.script.javascript</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.report.data.oda.jdbc</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <!-- more formats -->
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>uk.co.spudsoft.birt.emitters.excel</artifactId>
-        <version>4.22.0</version> 
-    </dependency>
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.report.engine.emitter.prototype.excel</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.report.engine.emitter.html</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.report.engine.emitter.config.html</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <dependency>
-        <groupId>org.eclipse.birt</groupId>
-        <artifactId>org.eclipse.birt.report.engine.dataextraction.csv</artifactId>
-        <version>4.22.0</version>
-    </dependency>
-
-    <dependency>
-        <groupId>io.github.jamestoney311</groupId>
-        <artifactId>org.eclipse.birt.report.engine.emitter.csv</artifactId>
-        <version>1.0.7</version>
-    </dependency>
-
+            <scope>test</scope>
+        </dependency>
     </dependencies>
-    
-
-<!--    <build>-->
-<!--        <plugins>-->
-<!--            <plugin>-->
-<!--                <groupId>org.apache.maven.plugins</groupId>-->
-<!--                <artifactId>maven-compiler-plugin</artifactId>-->
-<!--                <configuration>-->
-<!--                    <annotationProcessorPaths>-->
-<!--                        <path>-->
-<!--                            <groupId>org.projectlombok</groupId>-->
-<!--                            <artifactId>lombok</artifactId>-->
-<!--                        </path>-->
-<!--                    </annotationProcessorPaths>-->
-<!--                </configuration>-->
-<!--            </plugin>-->
-<!--        </plugins>-->
-<!--    </build>-->
+ 
     <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+
         <pluginManagement>
             <plugins>
                 <plugin>
@@ -343,11 +245,11 @@
                 <plugin>
                     <groupId>com.diffplug.spotless</groupId>
                     <artifactId>spotless-maven-plugin</artifactId>
-                    <version>3.2.1</version>
+                    <version>${spotless.version}</version>
                     <configuration>
                         <java>
                             <googleJavaFormat>
-                                <version>1.17.0</version>
+                                <version>${google-java-format.version}</version>
                                 <style>GOOGLE</style>
                             </googleJavaFormat>
                             <importOrder />
@@ -375,18 +277,6 @@
             <releases>
                 <enabled>true</enabled>
                 <updatePolicy>daily</updatePolicy>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-
-        <repository>
-            <id>hitachivantara</id>
-            <name>hitachivantara</name>
-            <url>https://hitachiedge1.jfrog.io/artifactory/pnt-mvn/</url>
-            <releases>
-                <enabled>true</enabled>
             </releases>
             <snapshots>
                 <enabled>false</enabled>
@@ -458,33 +348,29 @@
         </repository>
     </repositories>
 
-    <pluginRepositories>
+     <pluginRepositories>
         <pluginRepository>
-            <id>spring-snapshots</id>
-            <name>Spring Snapshots</name>
-            <url>https://repo.spring.io/snapshot</url>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <snapshots><enabled>false</enabled></snapshots>
         </pluginRepository>
         <pluginRepository>
             <id>spring-milestones</id>
-            <name>Spring Milestones</name>
             <url>https://repo.spring.io/milestone</url>
-        </pluginRepository>        
-        
+            <snapshots><enabled>false</enabled></snapshots>
+        </pluginRepository>
         <pluginRepository>
-            <id>release</id>
-          <name>libs-release-local</name>
-          <url>https://mifos.jfrog.io/artifactory/libs-release-local</url>
+            <id>mifos-release</id>
+            <url>https://mifos.jfrog.io/artifactory/libs-release-local</url>
+            <snapshots><enabled>false</enabled></snapshots>
         </pluginRepository>
     </pluginRepositories>
-    
+
     <distributionManagement>
         <repository>
             <id>central</id>
             <name>Mifos Artifactory</name>
             <url>https://mifos.jfrog.io/artifactory/libs-snapshot-local/</url>
         </repository>
-    </repositories>
+    </distributionManagement>
 </project>
