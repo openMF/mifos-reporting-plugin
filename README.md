@@ -1,4 +1,4 @@
-# Mifos® Reporting Plugin (Eclipse BIRT) for Apache Fineract®
+# Mifos® Reporting Plugin (Eclipse BIRT®) for Apache Fineract®
 
 ## Overview
 
