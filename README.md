@@ -1,8 +1,8 @@
-# Mifos® Reporting Plugin for Apache Fineract®
+# Mifos® Reporting Plugin (Eclipse BIRT) for Apache Fineract®
 
 ## Overview
 
-This is the **Eclipse BIRT (Business Intelligence and Reporting Tools)** edition of the Mifos® X Reporting Plugin for Apache Fineract®. It replaces the legacy Pentaho-based reporting system with a modern and lightweight reporting engine
+This is the **Eclipse BIRT (Business Intelligence and Reporting Tools)** of the Mifos® X Reporting Plugin for Apache Fineract®. It replaces the legacy Pentaho-based reporting system with a modern and lightweight reporting engine
 
 ## For Users
 
@@ -22,8 +22,8 @@ This is the **Eclipse BIRT (Business Intelligence and Reporting Tools)** edition
 
 | Apache Fineract | Mifos Reporting Plugin | Download Link |
 | :---:         |     :---:      |          :---: |
-| 1.12.0   | 1.12.1     | [Mifos® Security Plugin v1.12.1](https://sourceforge.net/projects/mifos/files/mifos-plugins/MifosReportingPlugin/MifosSecurityPlugin-1.12.1.zip/download)     |
-| 1.11.0     | 1.11.0       | [Mifos® Security Plugin v1.11.0](https://sourceforge.net/projects/mifos/files/mifos-plugins/MifosReportingPlugin/FineractPentahoPlugin-1.11.zip/download)      |
+| TBD   | TBD     | TBD    |
+
 
 4a. Execute only for Docker® - Create a directory, copy the Mifos® BIRT Plugin and the Eclipse BIRT libraries in it
 
@@ -82,25 +82,18 @@ See also [`BirtReportingProcessServiceImplTest`](src/test/java/org/apache/finera
 
 ## License
 
-This code used to be part of the Mifos® codebase before it became [Apache Fineract®](https://fineract.apache.org).
-During that move, the Pentaho® related code had to be removed, because Pentaho®'s license prevents code using it from being part of an Apache Software Foundation® hosted project.
-This BIRT® Plugin is a modern replacement that addresses the maintenance issues of the previous Pentaho implementation.
-
-The correct technical solution to resolve such conundrums is to use a plugin architecture - which is what this is.
-
-Note that the code and report templates in this git repo itself are
+The code and report templates in this git repo itself are
 [licensed to you under the Mozilla® Public License 2.0 (MPL)](https://github.com/openMF/mifos-x-reporting-plugin-birt/blob/dev/LICENSE).
-This is a separate question than the license that Eclipse BIRT® itself (i.e. the JAR/s of Eclipse BIRT®) are made available under.
 
 ## Important
 
 * Mifos® and Mifos® Reporting Plugin are not affiliated with, endorsed by, or otherwise associated with the Apache Software Foundation® (ASF) or any of its projects.
 * Apache Software Foundation® is a vendor-neutral organization and it is an important part of the brand is that Apache Software Foundation® (ASF) projects are governed independently.
 * Apache Fineract®, Fineract, Apache, the Apache® feather, and the Apache Fineract® project logo are either registered trademarks or trademarks of the Apache Software Foundation®.
-* Mifos® and Mifos® Reporting Plugin are not affiliated with, endorsed by, or otherwise associated with Hitachi Vantara LLC or any of its projects.
-* Hitachi® and Hitachi Vantara® are registered trademarks of Hitachi, Ltd. in the U.S. and other countries. Pentaho® is a registered trademark of Hitachi Vantara LLC in the U.S. and other countries.
+* Mifos® and Mifos® Reporting Plugin are not affiliated with, endorsed by, or otherwise associated with Eclipse Foundation or any of its projects.
+* Eclipse® and Eclipse BIRT® and the associated logos are registered trademarks of the Eclipse Foundation, Inc.. The trademarks are used to identify the open-source business intelligence and reporting project hosted by the Eclipse Foundation.
 
 ## Contribute
 
-If this Mifos® Reporting Plugin project is useful to you, please contribute back to it (and to Apache Fineract®) by raising Pull Requests yourself with any enhancements you make, and by helping to maintain this project by helping other users on Issues and reviewing PR from others (you will be promoted to committer on this project when you contribute).  
+If this Mifos® Reporting Plugin project is useful to you, please contribute back to it by raising Pull Requests yourself with any enhancements you make, and by helping to maintain this project by helping other users on Issues and reviewing PR from others (you will be promoted to committer on this project when you contribute).  
 We recommend that you _Watch_ and _Star_ this project on GitHub® to make it easy to get notified.
