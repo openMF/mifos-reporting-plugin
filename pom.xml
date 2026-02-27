@@ -18,7 +18,7 @@
 
     <groupId>community.mifos</groupId>
     <artifactId>birt-plugin</artifactId>
-    <version>1.14.0-SNAPSHOT</version>
+    <version>1.15.0-SNAPSHOT</version>
     <name>birt-plugin</name>
     <description>Mifos BIRT Reporting Plugin for Apache Fineract</description>
 
