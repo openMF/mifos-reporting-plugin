@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.15.xsd">
+
+    <changeSet id="mx136-remove-pentaho-unreferenced-reports"
+               author="fineract"
+               context="custom_changelog">
+
+        <!--
+            MX-136
+            Remove Pentaho report definitions from stretchy_report.
+
+            Requirements (as clarified by Victor):
+            - Remove only report definitions (report_type = 'Pentaho')
+            - Preserve mailing job run history
+            - Do NOT delete mailing jobs
+            - Skip deletion if report is referenced (Option A)
+            - Do not touch non-Pentaho reports
+        -->
+
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="stretchy_report"/>
+        </preConditions>
+
+        <!--
+            Note:
+            - We only hard-require stretchy_report to exist.
+            - Missing reference tables (m_report_mailing_job, scheduled_email_campaign, sms_campaign)
+              are treated as having no references, avoiding silent MARK_RAN skips in environments
+              where those features are not installed.
+        -->
+        <sql>
+            DELETE FROM stretchy_report
+            WHERE report_type = 'Pentaho'
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM m_report_mailing_job
+                    WHERE m_report_mailing_job.stretchy_report_id = stretchy_report.id
+              )
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM scheduled_email_campaign
+                    WHERE scheduled_email_campaign.stretchy_report_id = stretchy_report.id
+              )
+              AND NOT EXISTS (
+                    SELECT 1
+                    FROM sms_campaign
+                    WHERE sms_campaign.report_id = stretchy_report.id
+              );
+        </sql>
+
+        <rollback>
+            <!--
+                No rollback provided.
+                This is an intentional destructive cleanup of deprecated Pentaho reports.
+                Restoration should be handled via fresh seed migration if required.
+            -->
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>
