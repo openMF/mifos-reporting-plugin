@@ -8,7 +8,7 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.15.xsd">
 
     <changeSet id="mx136-remove-pentaho-unreferenced-reports"
-               author="raghav"
+               author="fineract"
                context="custom_changelog">
 
         <!--
