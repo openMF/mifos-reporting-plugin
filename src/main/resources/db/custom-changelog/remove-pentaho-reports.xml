@@ -24,14 +24,16 @@
         -->
 
         <preConditions onFail="MARK_RAN">
-            <and>
-                <tableExists tableName="stretchy_report"/>
-                <tableExists tableName="m_report_mailing_job"/>
-                <tableExists tableName="scheduled_email_campaign"/>
-                <tableExists tableName="sms_campaign"/>
-            </and>
+            <tableExists tableName="stretchy_report"/>
         </preConditions>
 
+        <!--
+            Note:
+            - We only hard-require stretchy_report to exist.
+            - Missing reference tables (m_report_mailing_job, scheduled_email_campaign, sms_campaign)
+              are treated as having no references, avoiding silent MARK_RAN skips in environments
+              where those features are not installed.
+        -->
         <sql>
             DELETE FROM stretchy_report
             WHERE report_type = 'Pentaho'
