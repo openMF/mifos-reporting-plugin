@@ -90,7 +90,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
 
   @Autowired FineractProperties fineractProperties;
 
-  @Autowired ApplicationContext applicationContext;
+  @Autowired ApplicationContext contextVar;
 
   @Autowired
   public PentahoReportingProcessServiceImpl(
