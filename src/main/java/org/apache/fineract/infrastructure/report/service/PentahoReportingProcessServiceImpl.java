@@ -307,7 +307,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       final var tenant = ThreadLocalContextUtil.getTenant();
       final var tenantConnection = tenant.getConnection();
       String protocol = toProtocol(this.tenantDataSource);
-      Environment environment = applicationContext.getEnvironment();
+      Environment environment = contextVar.getEnvironment();
       String tenantUrl =
           toJdbcUrl(
               protocol,
