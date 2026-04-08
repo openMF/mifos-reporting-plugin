@@ -1,0 +1,179 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: 'en-US'
+tone_instructions: 'give formal and direct reviews with no humour and any other distracting text, only the necessary'
+chat:
+  auto_reply: true
+  art: false
+reviews:
+  profile: 'chill'
+  request_changes_workflow: true
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    base_branches:
+      - '^(?!release).*'
+  poem: false
+  high_level_summary: true
+  suggested_labels: true
+  auto_apply_labels: true
+  labeling_instructions:
+    - label: '⏱️ <10 Min Review'
+      instructions: Apply for PRs with <200 lines changed
+    - label: '⏱️ 10-30 Min Review'
+      instructions: Apply for PRs with 200–1000 lines changed
+    - label: '⏱️ 30-60 Min Review'
+      instructions: Apply for PRs with 1000–2000 lines changed
+    - label: '⏱️ 60+ Min Review'
+      instructions: Apply for PRs with >2000 lines changed
+
+  path_instructions:
+    - path: '**'
+      instructions: |
+        ## General Project Standards
+        ### Security & Performance
+        - Validate and sanitize all incoming data (use Bean Validation with `@Valid` and constraints).
+        - Always use prepared statements, parameterized queries, or Spring Data repositories.
+        - Use Spring Security for authentication and method-level authorization.
+        - Apply the principle of least privilege for access control.
+        - Configure connection pools (HikariCP) properly for performance.
+        - Cache frequently accessed results with `@Cacheable` and invalidate with `@CacheEvict`.
+        - Offload long-running or blocking work using `@Async`, schedulers, or queues.
+        - Avoid blocking I/O in reactive (WebFlux) contexts.
+
+        ### Code Quality & Documentation
+        - Apply DRY, SOLID, and Clean Architecture principles.
+        - Avoid framework coupling in domain or application layers.
+        - Maintain up-to-date API documentation via SpringDoc (OpenAPI 3) or REST Docs.
+        - Use Checkstyle or SpotBugs for static code analysis.
+        - Prefer immutability and constructor injection for all beans.
+
+    - path: 'src/main/java/**'
+      instructions: |
+        ## Project & Package Structure
+        - Follow DDD-inspired modular structure:
+          ```
+          com.company.project
+          ├── api          # REST controllers, request/response DTOs
+          ├── application  # Services, use cases, orchestrators
+          ├── domain       # Entities, value objects, domain events, aggregates
+          ├── infrastructure
+          │   ├── persistence  # JPA, repositories, adapters
+          │   ├── messaging    # Kafka, RabbitMQ adapters
+          │   └── config       # Spring @Configuration classes
+          └── shared        # Common utilities, constants, base abstractions
+          ```
+        - Each module should have a clear boundary and minimal dependencies.
+        - No circular dependencies between packages.
+        - Do not mix domain and infrastructure code.
+
+    - path: '**/*.java'
+      instructions: |
+        ## General Java + Spring Coding Standards
+        ### Style & Conventions
+        - Class names: PascalCase. Methods/fields: camelCase. Constants: UPPER_CASE.
+        - Avoid wildcard imports; import explicitly.
+        - Use Lombok judiciously. Avoid `@Data`; prefer `@Value`, `@Getter`, and explicit constructors.
+        - Apply `final` to fields injected via constructors.
+        - Avoid mutable static state or utility singletons.
+
+        ### Dependency Injection
+        - Prefer constructor-based injection. Avoid field injection.
+        - Mark service components with `@Service` or `@Component`.
+        - Use `@ConfigurationProperties` for structured config, validated with `@Validated`.
+        - Keep beans stateless wherever possible.
+
+        ### Methods & Classes
+        - Keep methods concise (<20 lines).
+        - Limit public methods in classes; prefer package-private visibility for internal logic.
+        - Extract reusable logic to smaller, cohesive components.
+        - Avoid logic inside constructors or `@PostConstruct` unless necessary.
+        - Prefer returning Optional or sealed result types instead of null.
+
+        ### Logging & Exceptions
+        - Use SLF4J (`@Slf4j`) for logging.
+        - Never log sensitive data (PII, tokens).
+        - Throw domain-specific exceptions rather than generic ones.
+        - Use `@ControllerAdvice` with `@ExceptionHandler` for global error mapping.
+
+        ### Documentation
+        - Public methods and classes MUST have Javadoc.
+        - Document complex business rules with “why” comments, not “what”.
+
+    - path: 'src/main/java/**/api/**/*.java'
+      instructions: |
+        ## API & Controllers
+        - Use `@RestController` for REST endpoints, `@RequestMapping` for base paths.
+        - Controllers must delegate all logic to application or domain layers.
+        - Validate inputs with `@Valid` and Jakarta validation annotations.
+        - Always return DTOs, never entities.
+        - Use meaningful HTTP status codes (`ResponseEntity` preferred).
+        - Document endpoints using OpenAPI annotations or SpringDoc.
+        - Avoid excessive controller logic — aim for single responsibility per endpoint.
+
+    - path: 'src/main/java/**/application/**/*.java'
+      instructions: |
+        ## Application Layer (Use Cases)
+        - Services encapsulate use cases — stateless and orchestrate domain operations.
+        - Annotate with `@Service`; manage transactions with `@Transactional`.
+        - Avoid direct dependency on controllers or persistence details.
+        - Return well-defined domain or DTO responses.
+        - Avoid leaking persistence entities or DTOs outside the application layer.
+
+    - path: 'src/main/java/**/domain/**/*.java'
+      instructions: |
+        ## Domain Layer
+        - Contains entities, value objects, and domain events only.
+        - No dependencies on Spring, frameworks, or infrastructure.
+        - Entities should encapsulate behavior and invariants.
+        - Use immutable patterns for Value Objects (explicit constructors, final fields). Lombok `@Value` may be used as it's compile-time only.
+        - Domain events should be POJOs with clear purpose.
+        - Domain services should express business logic that doesn’t belong to entities.
+
+    - path: 'src/main/java/**/infrastructure/**/*.java'
+      instructions: |
+        ## Infrastructure Layer
+        - Contains all technical implementations (persistence, messaging, integration).
+        - JPA entities should reside here, separate from domain models.
+        - Use repositories extending `JpaRepository` or custom interfaces.
+        - Mark adapters with `@Repository`, `@Component`, or `@Configuration`.
+        - Manage transactions only at the service level, not in repositories.
+        - Define mappers for converting between persistence models and domain models.
+
+    - path: 'src/main/java/**/config/**/*.java'
+      instructions: |
+        ## Configuration & Bootstrapping
+        - Use `@Configuration` for bean definitions.
+        - Use `@EnableScheduling`, `@EnableAsync`, or other annotations only where necessary.
+        - Configuration must be environment-agnostic.
+        - Avoid business logic in configuration classes.
+        - Use profiles (`@Profile`) for environment-specific beans.
+        - Externalize configuration in `application.yml` and validate on startup.
+
+    - path: 'src/test/java/**'
+      instructions: |
+        ## Testing Standards
+        - Use JUnit 5, Mockito, and AssertJ.
+        - Name tests `ClassNameTest` or `ClassNameIT` (for integration).
+        - Unit tests must be isolated (mock dependencies).
+        - Use Testcontainers for database or integration tests.
+        - Use `@SpringBootTest` only for full-context integration tests.
+        - Verify both happy path and edge cases.
+        - Maintain >80% coverage for core business logic.
+
+    - path: '{pom.xml,build.gradle,README.md,application.yml,application.properties}'
+      instructions: |
+        ## Project-Level Standards
+        - **pom.xml / build.gradle:**
+          - Use Java 21+ and Spring Boot 3.x.
+          - Include dependencies: Spring Boot Starter (Web, Data JPA, Validation, Test).
+          - Enforce static analysis: Checkstyle, Spotless, PMD.
+          - Configure `jacoco` or `kover` for code coverage reporting.
+        - **README.md:**
+          - Must include setup, build, and run instructions.
+          - List all environment variables and required external services.
+          - Describe how to run tests and generate API docs.
+        - **application.yml:**
+          - Organize by domain (e.g., `spring.datasource`, `app.security`, `app.cache`).
+          - Never commit secrets.
+          - Validate configuration via `@ConfigurationProperties`.
+          - Provide `application-example.yml` for reference.
