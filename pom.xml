@@ -16,7 +16,7 @@
 
     <properties>
         <java.version>21</java.version>
-        <fineract.version>0.0.1354-6c25e80</fineract.version>
+        <fineract.version>0.0.1360-df03eb0</fineract.version>
         <pentaho.version>9.4.0.0-343</pentaho.version>
         <graal.version>24.2.2</graal.version>
         <eclipselink.version>4.0.9</eclipselink.version>
