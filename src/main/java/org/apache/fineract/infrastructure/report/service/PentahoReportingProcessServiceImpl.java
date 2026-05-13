@@ -278,7 +278,8 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
           }
 
           final Class<?> clazz = paramDefEntry.getValueType();
-          logger.debug("addParametersToReport({} : {} : {})", paramName, pValue, clazz.getCanonicalName());
+          logger.debug(
+              "addParametersToReport({} : {} : {})", paramName, pValue, clazz.getCanonicalName());
 
           if (clazz.getCanonicalName().equalsIgnoreCase("java.lang.Integer")) {
             rptParamValues.put(paramName, Integer.parseInt(pValue));
