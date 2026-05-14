@@ -198,7 +198,6 @@ public class BirtDataSourceConfigurer {
         return applicationContext.getEnvironment().getProperty(propertyName, defaultValue);
     }
 
-    // Helper imports (add these to your class)
     protected static String toProtocol(javax.sql.DataSource dataSource) {
         return org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection.toProtocol(dataSource);
     }

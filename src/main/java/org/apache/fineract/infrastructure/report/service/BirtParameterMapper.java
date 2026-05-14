@@ -177,8 +177,6 @@ public class BirtParameterMapper {
         }
     }
 
-    // ==================== Helper Methods ====================
-
     private String buildTenantJdbcUrl(FineractPlatformTenantConnection conn) {
         String protocol = BirtDataSourceConfigurer.toProtocol(tenantDataSource);
 
