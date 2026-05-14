@@ -11,6 +11,7 @@ import java.io.ByteArrayOutputStream;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.report.service.BirtRenderer;
 import org.eclipse.birt.report.engine.api.HTMLRenderOption;
+import org.eclipse.birt.report.engine.api.IRenderOption;
 import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +24,7 @@ public class HtmlBirtRenderer implements BirtRenderer {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
     HTMLRenderOption options = new HTMLRenderOption();
-    options.setOutputFormat("html");
+    options.setOutputFormat(IRenderOption.OUTPUT_FORMAT_HTML);
     options.setEmbeddable(true);
     options.setOutputStream(baos);
 

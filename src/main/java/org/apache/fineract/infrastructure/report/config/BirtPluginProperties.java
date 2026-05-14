@@ -14,11 +14,19 @@ import org.springframework.stereotype.Component;
 @Getter
 @Setter
 @Component
-@ConfigurationProperties(prefix = "fineract.birt")
+@ConfigurationProperties(prefix = "mifos.birt")
 public class BirtPluginProperties {
 
-  private String reportsPath; // FINERACT_BIRT_REPORTS_PATH
+  // FINERACT_BIRT_REPORTS_PATH
+  private String reportsPath;
+  // Default Locale
   private String defaultLocale = "en";
+  // Default Output Type
   private boolean embedHtml = true;
-  private int cacheTtlMinutes = 60; // for report design cache
+  // For report design cache
+  private int cacheTtlMinutes = 60;
+  // Directory containing custom TTF fonts
+  private String fontsPath;
+  // Optional Custom fontsConfig.xml location
+  private String fontsConfigPath;
 }
