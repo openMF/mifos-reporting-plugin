@@ -48,14 +48,17 @@ Building and using it against other Apache Fineract® versions may be possible, 
 1. Download and compile
 
 ```bash
-    git clone https://github.com/openMF/mifos-x-reporting-plugin.git
-    cd mifos-x-reporting-plugin && ./mvnw -Dmaven.test.skip=true clean package && cd ..
+    git clone https://github.com/openMF/mifos-reporting-plugin.git
+    cd mifos-reporting-plugin && ./mvnw -Dmaven.test.skip=true clean package && cd ..
 ```
-2. Export the Location of Mifos® reports (RPTDESIGN files) in the following variable
+2. Export the variables required
 
 ```bash
-    export FINERACT_BIRT_REPORTS_PATH="$PWD/birtReports/"
-```   
+    export MIFOS_BIRT_REPORTS_LOCALE=en
+    export MIFOS_BIRT_REPORTS_PATH=/app/birt/reports
+    export MIFOS_BIRT_REPORTS_FONTS_PATH=/app/birt/fonts
+    export MIFOS_BIRT_REPORTS_FONTS_CONFIG_PATH=/app/birt/config
+```      
 
 3. Execute Apache Fineract® with the location of the Mifos® BIRT Plugin library
 
