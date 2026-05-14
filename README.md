@@ -83,7 +83,7 @@ See also [`BirtReportingProcessServiceImplTest`](src/test/java/org/apache/finera
 ## License
 
 The code and report templates in this git repo itself are
-[licensed to you under the Mozilla® Public License 2.0 (MPL)](https://github.com/openMF/mifos-x-reporting-plugin-birt/blob/dev/LICENSE).
+[licensed to you under the Mozilla® Public License 2.0 (MPL)](https://github.com/openMF/mifos-x-reporting-plugin/blob/dev/LICENSE).
 
 ## Important
 
