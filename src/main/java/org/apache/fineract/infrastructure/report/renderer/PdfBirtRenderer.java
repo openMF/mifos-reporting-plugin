@@ -12,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
-import org.apache.fineract.infrastructure.report.service.BirtRenderer;
 import org.apache.fineract.infrastructure.report.util.FilenameUtils;
 import org.eclipse.birt.report.engine.api.IPDFRenderOption;
 import org.eclipse.birt.report.engine.api.IRenderOption;

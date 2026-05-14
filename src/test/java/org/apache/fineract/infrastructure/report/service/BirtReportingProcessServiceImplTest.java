@@ -27,6 +27,7 @@ import java.util.Map;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
+import org.apache.fineract.infrastructure.report.renderer.BirtRenderer;
 import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportRunnable;
 import org.eclipse.birt.report.engine.api.IRunAndRenderTask;

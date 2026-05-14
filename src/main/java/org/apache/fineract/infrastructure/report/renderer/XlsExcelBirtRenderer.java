@@ -9,7 +9,6 @@ package org.apache.fineract.infrastructure.report.renderer;
 import jakarta.ws.rs.core.Response;
 import java.io.ByteArrayOutputStream;
 import lombok.RequiredArgsConstructor;
-import org.apache.fineract.infrastructure.report.service.BirtRenderer;
 import org.apache.fineract.infrastructure.report.util.FilenameUtils;
 import org.eclipse.birt.report.engine.api.EXCELRenderOption;
 import org.eclipse.birt.report.engine.api.IRunAndRenderTask;

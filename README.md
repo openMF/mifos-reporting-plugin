@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is the **Eclipse BIRT (Business Intelligence and Reporting Tools)** of the Mifos® X Reporting Plugin for Apache Fineract®. It replaces the legacy Pentaho-based reporting system with a modern and lightweight reporting engine
+This is the **Eclipse BIRT® (Business Intelligence and Reporting Tools)** of the Mifos® X Reporting Plugin for Apache Fineract®. It replaces the legacy Pentaho-based reporting system with a modern and lightweight reporting engine
 
 ## For Users
 
@@ -23,7 +23,7 @@ This is the **Eclipse BIRT (Business Intelligence and Reporting Tools)** of the 
 
 3. Download the Mifos® Security Plugin and extract the files (all the libraries required for running it are included). **It is very important to use the specific version according to the Apache Fineract**
 
-| Apache Fineract | Mifos Reporting Plugin | Download Link |
+| Apache Fineract® | Mifos® Reporting Plugin | Download Link |
 | :---:         |     :---:      |          :---: |
 | TBD   | TBD     | TBD    |
 
