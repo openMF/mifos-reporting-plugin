@@ -220,7 +220,12 @@
 			<artifactId>truth</artifactId>
 			<version>${truth.version}</version>
 			<scope>test</scope>
-		</dependency>
+		</dependency>                
+                <dependency>
+                    <groupId>org.projectlombok</groupId>
+                    <artifactId>lombok</artifactId>
+                    <scope>compile</scope>
+                </dependency>
 	</dependencies>
 	<build>
 		<pluginManagement>
