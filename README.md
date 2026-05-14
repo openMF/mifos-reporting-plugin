@@ -39,7 +39,7 @@ This is the **Eclipse BIRT (Business Intelligence and Reporting Tools)** of the 
 
 ## For Developers
 
-This project is currently only tested against the very latest and greatest bleeding edge Apache Fineract® `develop` branch on Linux Ubuntu® 24.04LTS. 
+This project is currently only tested against the very latest and greatest bleeding edge Apache Fineract® `develop` branch on Linux Ubuntu® 26.04LTS. 
 Building and using it against other Apache Fineract® versions may be possible, but is not tested or documented here.
 
 1. Download and compile
