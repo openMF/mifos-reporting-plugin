@@ -28,6 +28,7 @@
 		<eclipselink.version>4.0.9</eclipselink.version>
 		<birt.version>4.22.0</birt.version>
 		<icu4j.version>78.2</icu4j.version>
+                <csv.emitter.version>1.0.11</csv.emitter.version>
 		<spotless.version>3.2.1</spotless.version>
 		<google-java-format.version>1.17.0</google-java-format.version>
 	</properties>
@@ -207,7 +208,7 @@
 		<dependency>
 			<groupId>io.github.jamestoney311</groupId>
 			<artifactId>org.eclipse.birt.report.engine.emitter.csv</artifactId>
-			<version>1.0.7</version>
+			<version>${csv.emitter.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
