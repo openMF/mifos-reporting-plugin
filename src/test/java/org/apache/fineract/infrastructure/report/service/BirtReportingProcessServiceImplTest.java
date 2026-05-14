@@ -7,10 +7,15 @@
  */
 package org.apache.fineract.infrastructure.report.service;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
@@ -18,24 +23,20 @@ import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
 import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportRunnable;
 import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.eclipse.birt.report.model.api.ReportDesignHandle;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
+@DisplayName("BirtReportingProcessServiceImpl Tests")
 class BirtReportingProcessServiceImplTest {
 
     @Mock private IReportEngine reportEngine;
@@ -44,7 +45,8 @@ class BirtReportingProcessServiceImplTest {
     @Mock private BirtParameterMapper parameterMapper;
     @Mock private BirtRenderer pdfRenderer;
     @Mock private BirtRenderer htmlRenderer;
-    @Mock private BirtRenderer excelRenderer;
+    @Mock private BirtRenderer xlsRenderer;
+    @Mock private BirtRenderer xlsxRenderer;
     @Mock private BirtRenderer csvRenderer;
     @Mock private BirtPluginProperties birtProperties;
 
@@ -53,59 +55,111 @@ class BirtReportingProcessServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        // Inject renderers map (Spring does this by bean name)
+        // Simulate Spring bean name-based injection of renderers
         Map<String, BirtRenderer> renderers = Map.of(
                 "PDF", pdfRenderer,
                 "HTML", htmlRenderer,
-                "XLS", excelRenderer,
-                "XLSX", excelRenderer,
+                "XLS", xlsRenderer,
+                "XLSX", xlsxRenderer,
                 "CSV", csvRenderer
         );
         ReflectionTestUtils.setField(service, "birtRenderers", renderers);
+
+        // Use lenient() to avoid UnnecessaryStubbingException
+        lenient().when(birtProperties.getDefaultLocale()).thenReturn("en");
     }
 
     private MultivaluedMap<String, String> queryParams(String outputType) {
-        MultivaluedMap<String, String> map = new MultivaluedHashMap<>();
+        MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
         if (outputType != null) {
-            map.add("output-type", outputType);
+            params.add("output-type", outputType);
         }
-        return map;
+        return params;
     }
 
     @Test
+    @DisplayName("Should extract only R_ prefixed parameters")
     void shouldExtractOnlyParamsWithR_Prefix() {
         MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
-        params.add("R_startDate", "2026-01-01");
+        params.add("R_startDate", "15 May 2026");
         params.add("R_officeId", "1");
+        params.add("R_clientId", "42");
         params.add("output-type", "PDF");
+        params.add("ignoreThis", "value");
 
         Map<String, String> result = service.getReportParams(params);
 
         assertNotNull(result);
-        assertEquals(2, result.size());
-        assertEquals("2026-01-01", result.get("startDate"));
+        assertEquals(3, result.size());
+        assertEquals("15 May 2026", result.get("startDate"));
+        assertEquals("1", result.get("officeId"));
+        assertEquals("42", result.get("clientId"));
     }
 
     @Test
+    @DisplayName("Should throw exception for invalid output type")
     void shouldThrowWhenOutputTypeIsInvalid() {
         PlatformDataIntegrityException ex = assertThrows(
                 PlatformDataIntegrityException.class,
-                () -> service.processRequest("any", queryParams("docx"))
+                () -> service.processRequest("sample", queryParams("INVALID"))
         );
+
         assertEquals("error.msg.invalid.outputType", ex.getGlobalisationMessageCode());
     }
 
-    @Test
-    void shouldDefaultToHTMLWhenOutputTypeIsBlank() {
-        assertThrows(PlatformDataIntegrityException.class,
-                () -> service.processRequest("Report", queryParams("")));
+    @ParameterizedTest
+    @CsvSource({
+            "PDF, application/pdf",
+            "HTML, text/html",
+            "XLS, application/vnd.ms-excel",
+            "XLSX, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "CSV, text/csv"
+    })
+    @DisplayName("Should support all major export formats")
+    void shouldSupportAllExportFormats(String outputType, String expectedMimeType) throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunAndRenderTask task = mock(IRunAndRenderTask.class);
+
+        when(reportLoader.loadReport(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
+
+        BirtRenderer renderer = getRendererForType(outputType);
+        when(renderer.render(any(), anyString())).thenReturn(
+                Response.ok().type(expectedMimeType).build()
+        );
+
+        doNothing().when(dataSourceConfigurer).configureAll(any());
+        doNothing().when(parameterMapper).applyParameters(any(), any());
+
+        Response response = service.processRequest("sample", queryParams(outputType));
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatus());
+        assertEquals(expectedMimeType, response.getMediaType().toString());
     }
 
     @Test
+    @DisplayName("Should return correct list of supported export targets")
+    void shouldReturnSupportedExportTargets() {
+        List<ReportExportType> targets = service.getAvailableExportTargets();
+
+        assertNotNull(targets);
+        assertEquals(5, targets.size());
+        assertTrue(targets.stream().anyMatch(t -> "PDF".equals(t.getKey())));
+        assertTrue(targets.stream().anyMatch(t -> "XLS".equals(t.getKey())));
+        assertTrue(targets.stream().anyMatch(t -> "XLSX".equals(t.getKey())));
+        assertTrue(targets.stream().anyMatch(t -> "CSV".equals(t.getKey())));
+        assertTrue(targets.stream().anyMatch(t -> "HTML".equals(t.getKey())));
+    }
+
+    @Test
+    @DisplayName("Should throw when report file is not found")
     void shouldThrowWhenReportFileNotFound() {
-        Mockito.when(reportLoader.loadReport(anyString(), any()))
-           .thenThrow(new PlatformDataIntegrityException(
-                   "error.msg.reporting.report.not.found", "Report not found"));
+        when(reportLoader.loadReport(anyString(), any()))
+                .thenThrow(new PlatformDataIntegrityException(
+                        "error.msg.reporting.report.not.found", "Report not found"));
 
         PlatformDataIntegrityException ex = assertThrows(
                 PlatformDataIntegrityException.class,
@@ -115,68 +169,34 @@ class BirtReportingProcessServiceImplTest {
         assertEquals("error.msg.reporting.error", ex.getGlobalisationMessageCode());
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"PDF", "HTML", "XLS", "XLSX", "CSV"})
-    void shouldSupportAllExportFormats(String outputType) throws Exception {
-        IReportRunnable design = Mockito.mock(IReportRunnable.class);
-        IRunAndRenderTask task = Mockito.mock(IRunAndRenderTask.class);
-        BirtRenderer renderer = getRendererForType(outputType);
+    @Test
+    @DisplayName("Should call all collaborators in correct order")
+    void shouldCallCollaboratorsInCorrectOrder() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunAndRenderTask task = mock(IRunAndRenderTask.class);
 
-        Mockito.when(reportLoader.loadReport(anyString(), any())).thenReturn(design);
-        Mockito.when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
-        Mockito.doNothing().when(dataSourceConfigurer).configureAll(any());
-        Mockito.doNothing().when(parameterMapper).applyParameters(any(), any());
+        when(reportLoader.loadReport(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
+        when(pdfRenderer.render(any(), anyString())).thenReturn(Response.ok().build());
 
-        // Return valid Response
-        Mockito.when(renderer.render(any(), anyString()))
-                .thenReturn(Response.ok().type(getMimeType(outputType)).build());
+        service.processRequest("sample", queryParams("PDF"));
 
-        Response response = service.processRequest("TestReport", queryParams(outputType));
-
-        assertNotNull(response);
-        assertEquals(200, response.getStatus());
-        Mockito.verify(renderer).render(any(), eq("TestReport"));
+        verify(reportLoader).loadReport(eq("sample"), any());
+        verify(dataSourceConfigurer).configureAll(designHandle);
+        verify(parameterMapper).applyParameters(eq(task), any());
+        verify(pdfRenderer).render(eq(task), eq("sample"));
     }
 
-    private BirtRenderer getRendererForType(String type) {
-        return switch (type) {
+    private BirtRenderer getRendererForType(String outputType) {
+        return switch (outputType.toUpperCase()) {
             case "PDF" -> pdfRenderer;
             case "HTML" -> htmlRenderer;
             case "CSV" -> csvRenderer;
-            default -> excelRenderer;
+            case "XLS" -> xlsRenderer;
+            case "XLSX" -> xlsxRenderer;
+            default -> htmlRenderer; // HTML
         };
-    }
-
-    private String getMimeType(String type) {
-        return switch (type) {
-            case "PDF" -> "application/pdf";
-            case "HTML" -> "text/html";
-            case "CSV" -> "text/csv";
-            default -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-        };
-    }
-
-    @Test
-    void shouldReturnSupportedExportTargets() {
-        List<ReportExportType> targets = service.getAvailableExportTargets();
-
-        assertNotNull(targets);
-    }
-
-    @Test
-    void shouldCallCollaboratorsInCorrectOrder() throws Exception {
-        IReportRunnable design = Mockito.mock(IReportRunnable.class);
-        IRunAndRenderTask task = Mockito.mock(IRunAndRenderTask.class);
-
-        Mockito.when(reportLoader.loadReport(anyString(), any())).thenReturn(design);
-        Mockito.when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
-        Mockito.when(pdfRenderer.render(any(), anyString())).thenReturn(Response.ok().build());
-
-        service.processRequest("Report", queryParams("PDF"));
-
-        Mockito.verify(reportLoader).loadReport(eq("Report"), any());
-        Mockito.verify(dataSourceConfigurer).configureAll(any());
-        Mockito.verify(parameterMapper).applyParameters(eq(task), any());
-        Mockito.verify(pdfRenderer).render(eq(task), eq("Report"));
     }
 }

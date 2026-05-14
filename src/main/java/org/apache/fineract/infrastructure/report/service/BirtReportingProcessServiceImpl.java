@@ -41,7 +41,7 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     private final BirtParameterMapper parameterMapper;
     private final Map<String, BirtRenderer> birtRenderers;
     private final BirtPluginProperties birtProperties;           // Injected
-
+    
     @Override
     public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
         String outputType = resolveOutputType(queryParams);
@@ -131,6 +131,12 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
 
     @Override
     public List<ReportExportType> getAvailableExportTargets() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        return List.of(
+                new ReportExportType("PDF", "pdf"),
+                new ReportExportType("XLS", "xls"),
+                new ReportExportType("XLSX", "xlsx"),
+                new ReportExportType("CSV", "csv"),
+                new ReportExportType("HTML", "html")
+        );
     }
 }
