@@ -129,7 +129,6 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
         return params;
     }
 
-
     @Override
     public List<ReportExportType> getAvailableExportTargets() {
         throw new UnsupportedOperationException("Not supported yet.");

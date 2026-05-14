@@ -41,6 +41,7 @@ public class BirtDataSourceConfigurer {
     private final DatabasePasswordEncryptor databasePasswordEncryptor;
     private final FineractProperties fineractProperties;
     private final ApplicationContext applicationContext;
+    private final ReportErrorHandler reportErrorHandler;
 
     /**
      * Configures all datasources in the report (main report + subreports + libraries)
@@ -168,8 +169,8 @@ public class BirtDataSourceConfigurer {
         FineractPlatformTenantConnection conn = ThreadLocalContextUtil.getTenant().getConnection();
 
         if (StringUtils.isBlank(conn.getSchemaUsername())) {
-            return applicationContext.getEnvironment()
-                    .getProperty("FINERACT_DEFAULT_TENANTDB_UID", "");
+            log.error("No username found in DB for tenant");
+            throw reportErrorHandler.reportError("error.msg.reporting.username.notfound", "No username found in DB for tenant");
         }
         return conn.getSchemaUsername().trim();
     }
@@ -178,8 +179,8 @@ public class BirtDataSourceConfigurer {
         FineractPlatformTenantConnection conn = ThreadLocalContextUtil.getTenant().getConnection();
 
         if (StringUtils.isBlank(conn.getSchemaPassword())) {
-            return applicationContext.getEnvironment()
-                    .getProperty("FINERACT_DEFAULT_TENANTDB_PWD", "");
+            log.error("No password found in DB for tenant");
+            throw reportErrorHandler.reportError("error.msg.reporting.password.notfound", "No password found in DB for tenant");
         }
 
         try {

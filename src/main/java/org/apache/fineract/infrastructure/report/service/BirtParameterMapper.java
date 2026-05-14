@@ -40,7 +40,7 @@ public class BirtParameterMapper {
     private final DatabasePasswordEncryptor databasePasswordEncryptor;
     private final ApplicationContext applicationContext;
     private final ReportErrorHandler reportErrorHandler;
-    private final IReportEngine reportEngine;           // ← Injected here
+    private final IReportEngine reportEngine;           // Injected here
 
     private static final Set<String> SERVER_MANAGED_PARAMETERS = Set.of(
             "tenantUrl", "userhierarchy", "username", "password", "userid"
@@ -192,16 +192,16 @@ public class BirtParameterMapper {
 
     private String getDbUsername(FineractPlatformTenantConnection conn) {
         if (StringUtils.isBlank(conn.getSchemaUsername())) {
-            return applicationContext.getEnvironment()
-                    .getRequiredProperty("FINERACT_DEFAULT_TENANTDB_UID");
+            log.error("No username found in DB for tenant");
+            throw reportErrorHandler.reportError("error.msg.reporting.username.notfound", "No username found in DB for tenant");
         }
         return conn.getSchemaUsername().trim();
     }
 
     private String getDbPassword(FineractPlatformTenantConnection conn) {
         if (StringUtils.isBlank(conn.getSchemaPassword())) {
-            return applicationContext.getEnvironment()
-                    .getRequiredProperty("FINERACT_DEFAULT_TENANTDB_PWD");
+            log.error("No password found in DB for tenant");
+            throw reportErrorHandler.reportError("error.msg.reporting.password.notfound", "No password found in DB for tenant");
         }
 
         try {
