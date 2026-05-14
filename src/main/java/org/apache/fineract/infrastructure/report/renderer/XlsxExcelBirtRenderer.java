@@ -5,36 +5,44 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-package org.apache.fineract.infrastructure.report.service.renderer;
+package org.apache.fineract.infrastructure.report.renderer;
 
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.infrastructure.report.service.BirtRenderer;
-import org.eclipse.birt.report.engine.api.IPDFRenderOption;
+import org.eclipse.birt.report.engine.api.EXCELRenderOption;
 import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
-import org.eclipse.birt.report.engine.api.PDFRenderOption;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
+import org.apache.fineract.infrastructure.report.util.FilenameUtils;
 
-@Component("PDF")
+@Component("XLSX")
 @RequiredArgsConstructor
-public class PdfBirtRenderer implements BirtRenderer {
+public class XlsxExcelBirtRenderer implements BirtRenderer {
 
     @Override
     public Response render(IRunAndRenderTask task, String reportName) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-        PDFRenderOption options = new PDFRenderOption();
-        options.setOutputFormat("pdf");
-        options.setOption(IPDFRenderOption.PAGE_OVERFLOW, IPDFRenderOption.FIT_TO_PAGE_SIZE);
+        EXCELRenderOption options = new EXCELRenderOption();
+        String outputFormat = "xlsx";
+
+        options.setOutputFormat(outputFormat);
         options.setOutputStream(baos);
 
         task.setRenderOption(options);
         task.run();
 
+        String mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+        String extension = "xlsx";
+
         return Response.ok(baos.toByteArray())
-                .type("application/pdf")
+                .type(mimeType)
+                .header("Content-Disposition", 
+                        "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + "." + extension + "\"")
                 .build();
     }
+
 }
