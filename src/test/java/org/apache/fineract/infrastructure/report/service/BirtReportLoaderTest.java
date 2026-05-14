@@ -1,9 +1,8 @@
 /**
  * Copyright since 2026 Mifos Initiative
  *
- * This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * <p>This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy
+ * of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 package org.apache.fineract.infrastructure.report.service;
 
@@ -30,66 +29,66 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT) 
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("BirtReportLoader Tests")
 class BirtReportLoaderTest {
 
-    @Mock private IReportEngine reportEngine;
-    @Mock private BirtPluginProperties birtProperties;
-    @Mock private ReportErrorHandler reportErrorHandler;
+  @Mock private IReportEngine reportEngine;
+  @Mock private BirtPluginProperties birtProperties;
+  @Mock private ReportErrorHandler reportErrorHandler;
 
-    @InjectMocks
-    private BirtReportLoader reportLoader;
+  @InjectMocks private BirtReportLoader reportLoader;
 
-    @TempDir
-    Path tempDir;
+  @TempDir Path tempDir;
 
-    @BeforeEach
-    void setUp() throws EngineException {
-        when(birtProperties.getReportsPath()).thenReturn(tempDir.toString());
+  @BeforeEach
+  void setUp() throws EngineException {
+    when(birtProperties.getReportsPath()).thenReturn(tempDir.toString());
 
-        // Mock error handler - will be used only in failure cases
-        when(reportErrorHandler.reportError(anyString(), anyString()))
-                .thenAnswer(invocation -> {
-                    String code = invocation.getArgument(0);
-                    String message = invocation.getArgument(1);
-                    throw new PlatformDataIntegrityException(code, message);
-                });
+    // Mock error handler - will be used only in failure cases
+    when(reportErrorHandler.reportError(anyString(), anyString()))
+        .thenAnswer(
+            invocation -> {
+              String code = invocation.getArgument(0);
+              String message = invocation.getArgument(1);
+              throw new PlatformDataIntegrityException(code, message);
+            });
 
-        // Mock successful BIRT engine behavior
-        IReportRunnable mockReport = mock(IReportRunnable.class);
-        when(mockReport.getDesignHandle()).thenReturn(mock(org.eclipse.birt.report.model.api.ReportDesignHandle.class));
-        when(reportEngine.openReportDesign(anyString())).thenReturn(mockReport);
-    }
+    // Mock successful BIRT engine behavior
+    IReportRunnable mockReport = mock(IReportRunnable.class);
+    when(mockReport.getDesignHandle())
+        .thenReturn(mock(org.eclipse.birt.report.model.api.ReportDesignHandle.class));
+    when(reportEngine.openReportDesign(anyString())).thenReturn(mockReport);
+  }
 
-    @Test
-    @DisplayName("Should load report successfully when file exists")
-    void shouldLoadReportSuccessfully() throws Exception {
-        Path reportPath = tempDir.resolve("sample.rptdesign");
-        Files.writeString(reportPath, "<?xml version=\"1.0\"?><report></report>");
+  @Test
+  @DisplayName("Should load report successfully when file exists")
+  void shouldLoadReportSuccessfully() throws Exception {
+    Path reportPath = tempDir.resolve("sample.rptdesign");
+    Files.writeString(reportPath, "<?xml version=\"1.0\"?><report></report>");
 
-        IReportRunnable report = reportLoader.loadReport("sample", null);
-        assertNotNull(report);
-    }
+    IReportRunnable report = reportLoader.loadReport("sample", null);
+    assertNotNull(report);
+  }
 
-    @Test
-    @DisplayName("Should throw PlatformDataIntegrityException when report not found")
-    void shouldThrowExceptionWhenReportNotFound() {
-        PlatformDataIntegrityException ex = assertThrows(
-                PlatformDataIntegrityException.class,
-                () -> reportLoader.loadReport("missing", null)
-        );
+  @Test
+  @DisplayName("Should throw PlatformDataIntegrityException when report not found")
+  void shouldThrowExceptionWhenReportNotFound() {
+    PlatformDataIntegrityException ex =
+        assertThrows(
+            PlatformDataIntegrityException.class, () -> reportLoader.loadReport("missing", null));
 
-        assertEquals("error.msg.reporting.report.not.found", ex.getGlobalisationMessageCode());
-    }
+    assertEquals("error.msg.reporting.report.not.found", ex.getGlobalisationMessageCode());
+  }
 
-    @Test
-    @DisplayName("Should prefer locale-specific report first")
-    void shouldTryLocaleSpecificReportFirst() throws Exception {
-        Path esReport = tempDir.resolve("sample_es.rptdesign");
-        Files.writeString(esReport, "<?xml version=\"1.0\"?><report lang=\"es\"></report>");
+  @Test
+  @DisplayName("Should prefer locale-specific report first")
+  void shouldTryLocaleSpecificReportFirst() throws Exception {
+    Path esReport = tempDir.resolve("sample_es.rptdesign");
+    Files.writeString(esReport, "<?xml version=\"1.0\"?><report lang=\"es\"></report>");
 
-        IReportRunnable report = reportLoader.loadReport("sample", java.util.Locale.forLanguageTag("es"));
-        assertNotNull(report);
-    }
+    IReportRunnable report =
+        reportLoader.loadReport("sample", java.util.Locale.forLanguageTag("es"));
+    assertNotNull(report);
+  }
 }

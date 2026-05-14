@@ -1,9 +1,8 @@
 /**
  * Copyright since 2026 Mifos Initiative
  *
- * This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ * <p>This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy
+ * of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 package org.apache.fineract.infrastructure.report.service;
 
@@ -35,108 +34,106 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class BirtReportingProcessServiceImpl implements ReportingProcessService {
 
-    private final IReportEngine reportEngine;
-    private final BirtReportLoader reportLoader;
-    private final BirtDataSourceConfigurer dataSourceConfigurer;
-    private final BirtParameterMapper parameterMapper;
-    private final Map<String, BirtRenderer> birtRenderers;
-    private final BirtPluginProperties birtProperties;           // Injected
-    
-    @Override
-    public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
-        String outputType = resolveOutputType(queryParams);
-        Locale locale = ApiParameterHelper.extractLocale(queryParams);
-        Map<String, String> reportParams = getReportParams(queryParams);
+  private final IReportEngine reportEngine;
+  private final BirtReportLoader reportLoader;
+  private final BirtDataSourceConfigurer dataSourceConfigurer;
+  private final BirtParameterMapper parameterMapper;
+  private final Map<String, BirtRenderer> birtRenderers;
+  private final BirtPluginProperties birtProperties; // Injected
 
-        log.info("Generating BIRT report: {} | format: {} | locale: {}", 
-                reportName, outputType, locale);
+  @Override
+  public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
+    String outputType = resolveOutputType(queryParams);
+    Locale locale = ApiParameterHelper.extractLocale(queryParams);
+    Map<String, String> reportParams = getReportParams(queryParams);
 
-        try {
-            IReportRunnable design = reportLoader.loadReport(reportName, locale);
-            ReportDesignHandle designHandle = (ReportDesignHandle) design.getDesignHandle();
+    log.info(
+        "Generating BIRT report: {} | format: {} | locale: {}", reportName, outputType, locale);
 
-            dataSourceConfigurer.configureAll(designHandle);
+    try {
+      IReportRunnable design = reportLoader.loadReport(reportName, locale);
+      ReportDesignHandle designHandle = (ReportDesignHandle) design.getDesignHandle();
 
-            IRunAndRenderTask task = reportEngine.createRunAndRenderTask(design);
-            task.setErrorHandlingOption(IEngineTask.CANCEL_ON_ERROR);
+      dataSourceConfigurer.configureAll(designHandle);
 
-            configureLocale(task, locale);
-            parameterMapper.applyParameters(task, reportParams);
+      IRunAndRenderTask task = reportEngine.createRunAndRenderTask(design);
+      task.setErrorHandlingOption(IEngineTask.CANCEL_ON_ERROR);
 
-            BirtRenderer renderer = getRenderer(outputType);
-            return renderer.render(task, reportName);
+      configureLocale(task, locale);
+      parameterMapper.applyParameters(task, reportParams);
 
-        } catch (Exception e) {
-            log.error("Failed to generate BIRT report: {}", reportName, e);
-            throw new PlatformDataIntegrityException("error.msg.reporting.error",
-                    "Report generation failed: " + e.getMessage(), e);
-        }
+      BirtRenderer renderer = getRenderer(outputType);
+      return renderer.render(task, reportName);
+
+    } catch (Exception e) {
+      log.error("Failed to generate BIRT report: {}", reportName, e);
+      throw new PlatformDataIntegrityException(
+          "error.msg.reporting.error", "Report generation failed: " + e.getMessage(), e);
     }
+  }
 
-    private String resolveOutputType(MultivaluedMap<String, String> queryParams) {
-        String type = queryParams.getFirst("output-type");
-        String upper = StringUtils.defaultIfBlank(type, "HTML").toUpperCase();
+  private String resolveOutputType(MultivaluedMap<String, String> queryParams) {
+    String type = queryParams.getFirst("output-type");
+    String upper = StringUtils.defaultIfBlank(type, "HTML").toUpperCase();
 
-        if (!Set.of("HTML", "PDF", "XLS", "XLSX", "CSV").contains(upper)) {
-            throw new PlatformDataIntegrityException("error.msg.invalid.outputType",
-                    "Unsupported output type: " + type);
-        }
-        return upper;
+    if (!Set.of("HTML", "PDF", "XLS", "XLSX", "CSV").contains(upper)) {
+      throw new PlatformDataIntegrityException(
+          "error.msg.invalid.outputType", "Unsupported output type: " + type);
     }
+    return upper;
+  }
 
-    private BirtRenderer getRenderer(String outputType) {
-        BirtRenderer renderer = birtRenderers.get(outputType);
-        if (renderer == null) {
-            throw new PlatformDataIntegrityException("error.msg.invalid.outputType",
-                    "No renderer registered for output type: " + outputType);
-        }
-        return renderer;
+  private BirtRenderer getRenderer(String outputType) {
+    BirtRenderer renderer = birtRenderers.get(outputType);
+    if (renderer == null) {
+      throw new PlatformDataIntegrityException(
+          "error.msg.invalid.outputType", "No renderer registered for output type: " + outputType);
     }
+    return renderer;
+  }
 
-    /**
-     * Configures report locale using BirtProperties
-     */
-    private void configureLocale(IRunAndRenderTask task, Locale locale) {
-        // Priority 1: Configured default locale in application properties
-        if (StringUtils.isNotBlank(birtProperties.getDefaultLocale())) {
-            task.setLocale(Locale.forLanguageTag(birtProperties.getDefaultLocale()));
-            log.debug("Using configured default locale: {}", birtProperties.getDefaultLocale());
-        }
-        // Priority 2: Locale from request parameter
-        else if (locale != null) {
-            task.setLocale(locale);
-            log.debug("Using locale from request: {}", locale);
-        }
-        // Priority 3: System default (fallback)
-        else {
-            task.setLocale(Locale.ENGLISH);
-            log.debug("Using fallback locale: English");
-        }
+  /** Configures report locale using BirtProperties */
+  private void configureLocale(IRunAndRenderTask task, Locale locale) {
+    // Priority 1: Configured default locale in application properties
+    if (StringUtils.isNotBlank(birtProperties.getDefaultLocale())) {
+      task.setLocale(Locale.forLanguageTag(birtProperties.getDefaultLocale()));
+      log.debug("Using configured default locale: {}", birtProperties.getDefaultLocale());
     }
+    // Priority 2: Locale from request parameter
+    else if (locale != null) {
+      task.setLocale(locale);
+      log.debug("Using locale from request: {}", locale);
+    }
+    // Priority 3: System default (fallback)
+    else {
+      task.setLocale(Locale.ENGLISH);
+      log.debug("Using fallback locale: English");
+    }
+  }
 
-    @Override
-    public Map<String, String> getReportParams(MultivaluedMap<String, String> queryParams) {
-        Map<String, String> params = new HashMap<>();
-        queryParams.keySet().stream()
-                .filter(k -> k.startsWith("R_"))
-                .forEach(k -> {
-                    String key = k.substring(2);
-                    String value = queryParams.getFirst(k);
-                    if (StringUtils.isNotBlank(value)) {
-                        params.put(key, value);
-                    }
-                });
-        return params;
-    }
+  @Override
+  public Map<String, String> getReportParams(MultivaluedMap<String, String> queryParams) {
+    Map<String, String> params = new HashMap<>();
+    queryParams.keySet().stream()
+        .filter(k -> k.startsWith("R_"))
+        .forEach(
+            k -> {
+              String key = k.substring(2);
+              String value = queryParams.getFirst(k);
+              if (StringUtils.isNotBlank(value)) {
+                params.put(key, value);
+              }
+            });
+    return params;
+  }
 
-    @Override
-    public List<ReportExportType> getAvailableExportTargets() {
-        return List.of(
-                new ReportExportType("PDF", "pdf"),
-                new ReportExportType("XLS", "xls"),
-                new ReportExportType("XLSX", "xlsx"),
-                new ReportExportType("CSV", "csv"),
-                new ReportExportType("HTML", "html")
-        );
-    }
+  @Override
+  public List<ReportExportType> getAvailableExportTargets() {
+    return List.of(
+        new ReportExportType("PDF", "pdf"),
+        new ReportExportType("XLS", "xls"),
+        new ReportExportType("XLSX", "xlsx"),
+        new ReportExportType("CSV", "csv"),
+        new ReportExportType("HTML", "html"));
+  }
 }
