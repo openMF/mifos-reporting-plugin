@@ -24,8 +24,8 @@ import org.springframework.stereotype.Component;
 @Component("PDF")
 @RequiredArgsConstructor
 public class PdfBirtRenderer implements BirtRenderer {
-    
-    private final BirtPluginProperties birtProperties;
+
+  private final BirtPluginProperties birtProperties;
 
   @Override
   public Response render(IRunAndRenderTask task, String reportName) throws Exception {
@@ -36,13 +36,13 @@ public class PdfBirtRenderer implements BirtRenderer {
     options.setOutputFormat(IRenderOption.OUTPUT_FORMAT_PDF);
     options.setOption(IPDFRenderOption.PAGE_OVERFLOW, IPDFRenderOption.FIT_TO_PAGE_SIZE);
     options.setOutputStream(baos);
-    if (StringUtils.isNotBlank(birtProperties.getFontsConfigPath()) 
-            || StringUtils.isNotBlank(birtProperties.getFontsPath())) {
-        
-        // Font Embedding Settings
-        options.setEmbededFont(true);
-        options.setOption(PDFRenderOption.PDF_FONT_SUBSTITUTION, Boolean.FALSE);   // Prevent font replacement
-        
+    if (StringUtils.isNotBlank(birtProperties.getFontsConfigPath())
+        || StringUtils.isNotBlank(birtProperties.getFontsPath())) {
+
+      // Font Embedding Settings
+      options.setEmbededFont(true);
+      options.setOption(
+          PDFRenderOption.PDF_FONT_SUBSTITUTION, Boolean.FALSE); // Prevent font replacement
     }
 
     task.setRenderOption(options);
@@ -50,9 +50,11 @@ public class PdfBirtRenderer implements BirtRenderer {
     task.run();
 
     return Response.ok(baos.toByteArray())
-            .type("application/pdf")
-            .header("Content-Disposition", "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".pdf\"")
-            //.header("Cache-Control", "no-cache")
-            .build();
+        .type("application/pdf")
+        .header(
+            "Content-Disposition",
+            "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".pdf\"")
+        // .header("Cache-Control", "no-cache")
+        .build();
   }
 }
