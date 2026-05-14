@@ -27,7 +27,7 @@
 		<fineract.version>0.0.1334-c58fb65</fineract.version>
 		<eclipselink.version>4.0.9</eclipselink.version>
 		<birt.version>4.22.0</birt.version>
-		<icu4j.version>78.2</icu4j.version>
+		<icu4j.version>78.3</icu4j.version>
                 <csv.emitter.version>1.0.11</csv.emitter.version>
 		<spotless.version>3.2.1</spotless.version>
 		<google-java-format.version>1.17.0</google-java-format.version>
