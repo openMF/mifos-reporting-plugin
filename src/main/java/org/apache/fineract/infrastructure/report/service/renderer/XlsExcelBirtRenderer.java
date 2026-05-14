@@ -8,6 +8,7 @@ import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
+import org.apache.fineract.infrastructure.report.util.FilenameUtils;
 
 @Component("XLS")
 @RequiredArgsConstructor
@@ -31,11 +32,8 @@ public class XlsExcelBirtRenderer implements BirtRenderer {
         return Response.ok(baos.toByteArray())
                 .type(mimeType)
                 .header("Content-Disposition", 
-                        "attachment; filename=\"" + sanitizeFilename(reportName) + "." + extension + "\"")
+                        "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + "." + extension + "\"")
                 .build();
     }
 
-    private String sanitizeFilename(String name) {
-        return name.replaceAll("[^a-zA-Z0-9_.-]", "_");
-    }
 }

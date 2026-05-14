@@ -14,6 +14,7 @@ import org.eclipse.birt.report.engine.api.RenderOption;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
+import org.apache.fineract.infrastructure.report.util.FilenameUtils;
 
 @Component("CSV")
 @RequiredArgsConstructor
@@ -33,11 +34,7 @@ public class CsvBirtRenderer implements BirtRenderer {
         return Response.ok(baos.toByteArray())
                 .type("text/csv")
                 .header("Content-Disposition", 
-                        "attachment; filename=\"" + sanitizeFilename(reportName) + ".csv\"")
+                        "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".csv\"")
                 .build();
-    }
-
-    private String sanitizeFilename(String name) {
-        return name.replaceAll("[^a-zA-Z0-9_.-]", "_");
     }
 }
