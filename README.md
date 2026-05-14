@@ -45,8 +45,8 @@ Building and using it against other Apache Fineract® versions may be possible, 
 1. Download and compile
 
 ```bash
-    git clone https://github.com/openMF/mifos-x-reporting-plugin-birt.git
-    cd mifos-x-reporting-plugin-birt && ./mvnw -Dmaven.test.skip=true clean package && cd ..
+    git clone https://github.com/openMF/mifos-x-reporting-plugin.git
+    cd mifos-x-reporting-plugin && ./mvnw -Dmaven.test.skip=true clean package && cd ..
 ```
 2. Export the Location of Mifos® reports (RPTDESIGN files) in the following variable
 
