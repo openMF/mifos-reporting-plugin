@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Setter
 @Component
 @ConfigurationProperties(prefix = "fineract.birt")
-public class BirtProperties {
+public class BirtPluginProperties {
 
     private String reportsPath;           // FINERACT_BIRT_REPORTS_PATH
     private String defaultLocale = "en";

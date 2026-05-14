@@ -16,7 +16,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
-import org.apache.fineract.infrastructure.report.config.BirtProperties;
+import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
 
 /**
  * Responsible for loading BIRT report designs (.rptdesign files).
@@ -28,7 +28,7 @@ import org.apache.fineract.infrastructure.report.config.BirtProperties;
 public class BirtReportLoader {
 
     private final IReportEngine reportEngine;
-    private final BirtProperties birtProperties;
+    private final BirtPluginProperties birtProperties;
     private final ReportErrorHandler reportErrorHandler;
 
     private static final String DEFAULT_REPORTS_DIR = System.getProperty("user.home") 

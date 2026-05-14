@@ -21,7 +21,7 @@ import org.apache.fineract.infrastructure.core.api.ApiParameterHelper;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.report.annotation.ReportService;
-import org.apache.fineract.infrastructure.report.config.BirtProperties;
+import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
 import org.eclipse.birt.report.engine.api.IEngineTask;
 import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportRunnable;
@@ -40,7 +40,7 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     private final BirtDataSourceConfigurer dataSourceConfigurer;
     private final BirtParameterMapper parameterMapper;
     private final Map<String, BirtRenderer> birtRenderers;
-    private final BirtProperties birtProperties;           // Injected
+    private final BirtPluginProperties birtProperties;           // Injected
 
     @Override
     public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {

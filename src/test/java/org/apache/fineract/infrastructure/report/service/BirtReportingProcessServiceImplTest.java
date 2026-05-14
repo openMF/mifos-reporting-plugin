@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
-import org.apache.fineract.infrastructure.report.config.BirtProperties;
+import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
 import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportRunnable;
 import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
@@ -46,7 +46,7 @@ class BirtReportingProcessServiceImplTest {
     @Mock private BirtRenderer htmlRenderer;
     @Mock private BirtRenderer excelRenderer;
     @Mock private BirtRenderer csvRenderer;
-    @Mock private BirtProperties birtProperties;
+    @Mock private BirtPluginProperties birtProperties;
 
     @InjectMocks
     private BirtReportingProcessServiceImpl service;

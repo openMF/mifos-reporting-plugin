@@ -26,9 +26,9 @@ import org.springframework.context.annotation.Configuration;
  * down gracefully when the application stops, preventing memory leaks.
  */
 @Configuration
-public class BirtConfiguration {
+public class BirtEngineConfiguration {
 
-  private static final Logger logger = LoggerFactory.getLogger(BirtConfiguration.class);
+  private static final Logger logger = LoggerFactory.getLogger(BirtEngineConfiguration.class);
   private IReportEngine reportEngine;
 
   @PostConstruct
