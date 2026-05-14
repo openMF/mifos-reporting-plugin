@@ -6,16 +6,19 @@ This is the **Eclipse BIRT (Business Intelligence and Reporting Tools)** of the 
 
 ## For Users
 
-1. Create a directory for the Mifos® reports and copy the RPTDESIGN files in it 
+1. Create directories for the Mifos® reports and copy the Report, Font Config and Font files in them
 
 ```bash
-    mkdir birtReports
+    mkdir -p /app/birt/reports && mkdir -p /app/birt/fonts && mkdir -p /app/birt/config 
 ```
 
-2. Export the FINERACT_PENTAHO_REPORTS_PATH variable
+2. Export the variables required
 
 ```bash
-    export FINERACT_BIRT_REPORTS_PATH="$PWD/birtReports/"
+    export MIFOS_BIRT_REPORTS_LOCALE=en
+    export MIFOS_BIRT_REPORTS_PATH=/app/birt/reports
+    export MIFOS_BIRT_REPORTS_FONTS_PATH=/app/birt/fonts
+    export MIFOS_BIRT_REPORTS_FONTS_CONFIG_PATH=/app/birt/config
 ```    
 
 3. Download the Mifos® Security Plugin and extract the files (all the libraries required for running it are included). **It is very important to use the specific version according to the Apache Fineract**
