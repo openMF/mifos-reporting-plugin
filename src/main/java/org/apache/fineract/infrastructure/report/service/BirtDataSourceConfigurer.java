@@ -199,7 +199,7 @@ public class BirtDataSourceConfigurer {
     }
 
     // Helper imports (add these to your class)
-    private static String toProtocol(javax.sql.DataSource dataSource) {
+    protected static String toProtocol(javax.sql.DataSource dataSource) {
         return org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection.toProtocol(dataSource);
     }
 

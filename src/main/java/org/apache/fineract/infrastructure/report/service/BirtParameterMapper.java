@@ -19,7 +19,6 @@ import org.eclipse.birt.report.engine.api.IGetParameterDefinitionTask;
 import org.eclipse.birt.report.engine.api.IParameterDefn;
 import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
-import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 import java.text.SimpleDateFormat;
@@ -27,6 +26,7 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import javax.sql.DataSource;
 
 /**
  * Handles parameter mapping and injection for BIRT reports.
@@ -38,9 +38,9 @@ public class BirtParameterMapper {
 
     private final PlatformSecurityContext securityContext;
     private final DatabasePasswordEncryptor databasePasswordEncryptor;
-    private final ApplicationContext applicationContext;
     private final ReportErrorHandler reportErrorHandler;
     private final IReportEngine reportEngine;           // Injected here
+    private final DataSource tenantDataSource;
 
     private static final Set<String> SERVER_MANAGED_PARAMETERS = Set.of(
             "tenantUrl", "userhierarchy", "username", "password", "userid"
@@ -180,7 +180,7 @@ public class BirtParameterMapper {
     // ==================== Helper Methods ====================
 
     private String buildTenantJdbcUrl(FineractPlatformTenantConnection conn) {
-        String protocol = "jdbc:mysql"; // TODO: Improve by injecting DataSource if needed
+        String protocol = BirtDataSourceConfigurer.toProtocol(tenantDataSource);
 
         return org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection
                 .toJdbcUrl(protocol,
