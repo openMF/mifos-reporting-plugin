@@ -690,58 +690,91 @@
                     <property name="nativeDataType">3</property>
                 </structure>
             </list-property>
-            <xml-property name="queryText"><![CDATA[select 
-    concat(repeat("..",   
-        ((LENGTH(ounder.`hierarchy`) - LENGTH(REPLACE(ounder.`hierarchy`, '.', ''))) - 1)), ounder.`name`) as "Office/Branch",
+            <xml-property name="queryText"><![CDATA[SELECT 
+    CONCAT(REPEAT('..', 
+        ((LENGTH(ounder.hierarchy) - LENGTH(REPLACE(ounder.hierarchy, '.', ''))) - 1)), ounder.name) AS "Office/Branch",
     ounder.name, 
     ounder.id,
-    ifnull(cur.display_symbol, l.currency_code) as Currency,
-    ifnull(lo.`display_name`,'-') as "Loan Officer", 
-    c.display_name as "Client", 
-    l.account_no as "Loan Account No.",
-    ifnull(pl.`name`,'-') as "Product", 
-    ifnull(f.`name`,'-') as Fund,  
-    ifnull(l.`principal_amount`,0) as "Loan Amount", 
-    ifnull(l.`annual_nominal_interest_rate`,0) as "Annual Nominal Interest Rate", 
-    date(l.disbursedon_date) as "Disbursed Date", 
-    date(l.expected_maturedon_date) as "Expected Matured On",
+    COALESCE(cur.display_symbol, l.currency_code) AS Currency,
+    COALESCE(lo.display_name, '-') AS "Loan Officer", 
+    c.display_name AS "Client", 
+    l.account_no AS "Loan Account No.",
+    COALESCE(pl.name, '-') AS "Product", 
+    COALESCE(f.name, '-') AS Fund,  
+    COALESCE(l.principal_amount, 0) AS "Loan Amount", 
+    COALESCE(l.annual_nominal_interest_rate, 0) AS "Annual Nominal Interest Rate", 
+    DATE(l.disbursedon_date) AS "Disbursed Date", 
+    DATE(l.expected_maturedon_date) AS "Expected Matured On",
 
-    ifnull(l.`principal_repaid_derived`,0) as "Principal Repaid",
-    ifnull(l.`principal_outstanding_derived`,0) as "Principal Outstanding",
-    ifnull(laa.`principal_overdue_derived`,0) as "Principal Overdue",
+    COALESCE(l.principal_repaid_derived, 0) AS "Principal Repaid",
+    COALESCE(l.principal_outstanding_derived, 0) AS "Principal Outstanding",
+    COALESCE(laa.principal_overdue_derived, 0) AS "Principal Overdue",
 
-    ifnull(l.`interest_repaid_derived`,0.00) as "Interest Repaid",
-    ifnull(l.`interest_outstanding_derived`,0) as "Interest Outstanding",
-    ifnull(laa.`interest_overdue_derived`,0) as "Interest Overdue",
+    COALESCE(l.interest_repaid_derived, 0.00) AS "Interest Repaid",
+    COALESCE(l.interest_outstanding_derived, 0) AS "Interest Outstanding",
+    COALESCE(laa.interest_overdue_derived, 0) AS "Interest Overdue",
 
-    ifnull(l.`fee_charges_repaid_derived`,0) as "Fees Repaid",
-    ifnull(l.`fee_charges_outstanding_derived`,0)  as "Fees Outstanding",
-    ifnull(laa.`fee_charges_overdue_derived`,0) as "Fees Overdue",
+    COALESCE(l.fee_charges_repaid_derived, 0) AS "Fees Repaid",
+    COALESCE(l.fee_charges_outstanding_derived, 0) AS "Fees Outstanding",
+    COALESCE(laa.fee_charges_overdue_derived, 0) AS "Fees Overdue",
 
-    ifnull(l.`penalty_charges_repaid_derived`,0) as "Penalties Repaid",
-    ifnull(l.`penalty_charges_outstanding_derived` ,0)as "Penalties Outstanding",
-    ifnull(penalty_charges_overdue_derived,0) as "Penalties Overdue" 
+    COALESCE(l.penalty_charges_repaid_derived, 0) AS "Penalties Repaid",
+    COALESCE(l.penalty_charges_outstanding_derived, 0) AS "Penalties Outstanding",
+    COALESCE(laa.penalty_charges_overdue_derived, 0) AS "Penalties Overdue" 
 
-from m_office o 
-join m_office ounder on ounder.hierarchy like concat(o.hierarchy, '%') 
-    and ounder.hierarchy like concat(?, '%') -- Param 1: userhierarchy
-join m_client c on c.office_id = ounder.id 
-join m_loan l on l.client_id = c.id 
-join m_product_loan pl on pl.id = l.product_id 
-left join m_staff lo on lo.id = l.loan_officer_id 
-left join m_currency cur on cur.code = l.currency_code 
-left join m_fund f on f.id = l.fund_id 
-left join m_loan_arrears_aging laa on laa.loan_id = l.id 
+FROM m_office o 
+JOIN m_office ounder ON ounder.hierarchy LIKE CONCAT(o.hierarchy, '%') 
+    AND ounder.hierarchy LIKE CONCAT(?, '%') -- Param 1: userhierarchy
+JOIN m_client c ON c.office_id = ounder.id 
+JOIN m_loan l ON l.client_id = c.id 
+JOIN m_product_loan pl ON pl.id = l.product_id 
+LEFT JOIN m_staff lo ON lo.id = l.loan_officer_id 
+LEFT JOIN m_currency cur ON cur.code = l.currency_code 
+LEFT JOIN m_fund f ON f.id = l.fund_id 
+LEFT JOIN m_loan_arrears_aging laa ON laa.loan_id = l.id 
 
-where o.id = ? -- Param 2: branch
-and (ifnull(l.loan_officer_id, -10) = ? or "-1" = ?) -- Param 3 &amp; 4: loanOfficer
-and (l.currency_code = ? or "-1" = ?) -- Param 5 &amp; 6: currencyId
-and (l.product_id = ? or "-1" = ?) -- Param 7 &amp; 8: loanProductId
-and (ifnull(l.fund_id, -10) = ? or -1 = ?) -- Param 9 &amp; 10: fundId
-and (ifnull(l.loanpurpose_cv_id, -10) = ? or "-1" = ?) -- Param 11 &amp; 12: loanPurposeId
-and l.loan_status_id = 300 
+WHERE o.id = ? -- Param 2: branch
+AND (COALESCE(l.loan_officer_id, -10) = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) -- Param 3 & 4: loanOfficer
+AND (l.currency_code = ? OR ? = '-1') -- Param 5 & 6: currencyId (String comparison)
+AND (l.product_id = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) -- Param 7 & 8: loanProductId
+AND (COALESCE(l.fund_id, -10) = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) -- Param 9 & 10: fundId
+AND (COALESCE(l.loanpurpose_cv_id, -10) = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) -- Param 11 & 12: loanPurposeId
+AND l.loan_status_id = 300 
 
-group by l.id]]></xml-property>
+GROUP BY 
+    l.id,
+    ounder.id,
+    ounder.hierarchy,
+    ounder.name,
+    c.id,
+    c.display_name,
+    pl.id,
+    pl.name,
+    lo.id,
+    lo.display_name,
+    cur.code,
+    cur.display_symbol,
+    f.id,
+    f.name,
+    laa.loan_id,
+    laa.principal_overdue_derived,
+    laa.interest_overdue_derived,
+    laa.fee_charges_overdue_derived,
+    laa.penalty_charges_overdue_derived,
+    l.currency_code,
+    l.account_no,
+    l.principal_amount,
+    l.annual_nominal_interest_rate,
+    l.disbursedon_date,
+    l.expected_maturedon_date,
+    l.principal_repaid_derived,
+    l.principal_outstanding_derived,
+    l.interest_repaid_derived,
+    l.interest_outstanding_derived,
+    l.fee_charges_repaid_derived,
+    l.fee_charges_outstanding_derived,
+    l.penalty_charges_repaid_derived,
+    l.penalty_charges_outstanding_derived]]></xml-property>
             <xml-property name="designerValues"><![CDATA[<?xml version="1.0" encoding="UTF-8"?>
 <model:DesignValues xmlns:design="http://www.eclipse.org/datatools/connectivity/oda/design" xmlns:model="http://www.eclipse.org/birt/report/model/adapter/odaModel">
   <Version>2.0</Version>

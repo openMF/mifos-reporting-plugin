@@ -28,10 +28,10 @@
             <!-- report_subtype is omitted, defaults to NULL -->
             <column name="report_category" value="Loan"/>
             <!-- report_sql is omitted, defaults to NULL -->
-            <column name="description" value=""/>
-            <column name="core_report" valueNumeric="0"/>
-            <column name="use_report" valueNumeric="1"/>
-            <column name="self_service_user_report" valueNumeric="0"/>
+            <column name="description" value="Active Loans Detailed Report"/>
+            <column name="core_report" valueBoolean="false"/>
+            <column name="use_report" valueBoolean="true"/>
+            <column name="self_service_user_report" valueBoolean="false"/>
         </insert>
 
         <!-- 2. Insert Parameters using an ANSI SQL Subquery to fetch the auto-generated ID -->
