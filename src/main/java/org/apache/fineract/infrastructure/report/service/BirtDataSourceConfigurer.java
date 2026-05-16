@@ -8,6 +8,7 @@ package org.apache.fineract.infrastructure.report.service;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +41,15 @@ public class BirtDataSourceConfigurer {
   private final FineractProperties fineractProperties;
   private final ApplicationContext applicationContext;
   private final ReportErrorHandler reportErrorHandler;
+  
+  // Map of database protocol to JDBC driver class name
+  private static final Map<String, String> PROTOCOL_TO_DRIVER = Map.ofEntries(
+      Map.entry("jdbc:postgresql", "org.postgresql.Driver"),
+      Map.entry("jdbc:postgres", "org.postgresql.Driver"),
+      Map.entry("jdbc:mariadb", "org.mariadb.jdbc.Driver"),
+      Map.entry("jdbc:mysql", "com.mysql.cj.jdbc.Driver"),
+      Map.entry("jdbc:mysql-legacy", "com.mysql.jdbc.Driver")
+  );
 
   /** Configures all datasources in the report (main report + subreports + libraries) */
   public void configureAll(ReportDesignHandle designHandle) {
@@ -103,6 +113,7 @@ public class BirtDataSourceConfigurer {
     final String jdbcUrl = getTenantJdbcUrl();
     final String username = getDbUsername();
     final String password = getDbPassword();
+    final String driverClass = getDriverClassName();
 
     Iterator<DesignElementHandle> iterator = dataSources.iterator();
 
@@ -114,6 +125,7 @@ public class BirtDataSourceConfigurer {
           dataSource.setProperty("odaURL", jdbcUrl);
           dataSource.setProperty("odaUser", username);
           dataSource.setProperty("odaPassword", password);
+          dataSource.setProperty("odaDriverClass", driverClass);
 
           log.trace("Successfully updated datasource: {}", dataSource.getName());
         } catch (Exception e) {
@@ -121,6 +133,28 @@ public class BirtDataSourceConfigurer {
         }
       }
     }
+  }
+  
+  /**
+   * Resolves the JDBC driver class name based on the tenant's database protocol.
+   * 
+   * @return the fully qualified driver class name
+   * @throws IllegalStateException if the protocol is unsupported
+   */
+  private String getDriverClassName() {
+    String protocol = toProtocol(tenantDataSource).toLowerCase().trim();
+    String driverClass = PROTOCOL_TO_DRIVER.get(protocol);
+    
+    if (StringUtils.isBlank(driverClass)) {
+      log.error("Unsupported database protocol: {}. Supported protocols: {}", 
+          protocol, PROTOCOL_TO_DRIVER.keySet());
+      throw reportErrorHandler.reportError(
+          "error.msg.reporting.driver.notfound", 
+          "No JDBC driver found for protocol: " + protocol);
+    }
+    
+    log.debug("Resolved driver class for protocol '{}': {}", protocol, driverClass);
+    return driverClass;
   }
 
   /** Builds the JDBC URL for the current tenant (supports ReadOnly mode) */
@@ -190,7 +224,7 @@ public class BirtDataSourceConfigurer {
       throw new RuntimeException("Database password decryption failed", e);
     }
   }
-
+  
   private String getPropertyValue(String baseValue, String propertyName, String defaultValue) {
     if (StringUtils.isNotBlank(baseValue)) {
       return baseValue;
