@@ -38,7 +38,9 @@ public class BirtPluginLiquibaseConfiguration {
     List<FineractPlatformTenant> tenants = tenantDetailsService.findAllTenants();
 
     for (FineractPlatformTenant tenant : tenants) {
-      LOG.info("Running Mifos X Reporting Plugin default reports for tenant: {}", tenant.getTenantIdentifier());
+      LOG.info(
+          "Running Mifos X Reporting Plugin default reports for tenant: {}",
+          tenant.getTenantIdentifier());
       try {
         // 1. Force the database connection to route to THIS specific tenant
         ThreadLocalContextUtil.setTenant(tenant);
