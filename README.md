@@ -103,3 +103,7 @@ The code and report templates in this git repo itself are
 
 If this Mifos® Reporting Plugin project is useful to you, please contribute back to it by raising Pull Requests yourself with any enhancements you make, and by helping to maintain this project by helping other users on Issues and reviewing PR from others (you will be promoted to committer on this project when you contribute).  
 We recommend that you _Watch_ and _Star_ this project on GitHub® to make it easy to get notified.
+
+## Eclipse BIRT Designer and SDKs
+
+https://download.eclipse.org/birt/updates/release/latest/

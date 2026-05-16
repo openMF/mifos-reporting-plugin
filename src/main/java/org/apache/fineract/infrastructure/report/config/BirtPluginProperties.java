@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "mifos.birt")
 public class BirtPluginProperties {
 
-  // FINERACT_BIRT_REPORTS_PATH
+  // Path containing reports
   private String reportsPath;
   // Default Locale
   private String defaultLocale = "en";
