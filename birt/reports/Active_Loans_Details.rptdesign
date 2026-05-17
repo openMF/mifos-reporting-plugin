@@ -150,150 +150,140 @@
             <list-property name="columnHints">
                 <structure>
                     <property name="columnName">Office/Branch</property>
+                    <property name="alias">Office/Branch</property>
                     <property name="analysis">dimension</property>
                     <text-property name="displayName">Office/Branch</text-property>
                     <text-property name="heading">Office/Branch</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">name</property>
+                    <property name="alias">name</property>
                     <property name="analysis">dimension</property>
                     <text-property name="displayName">name</text-property>
                     <text-property name="heading">name</text-property>
                 </structure>
                 <structure>
-                    <property name="columnName">id</property>
-                    <property name="analysis">measure</property>
-                    <text-property name="displayName">id</text-property>
-                    <text-property name="heading">id</text-property>
-                </structure>
-                <structure>
-                    <property name="columnName">Currency</property>
-                    <property name="analysis">dimension</property>
-                    <text-property name="displayName">Currency</text-property>
-                    <text-property name="heading">Currency</text-property>
-                </structure>
-                <structure>
                     <property name="columnName">Loan Officer</property>
+                    <property name="alias">Loan Officer</property>
                     <property name="analysis">dimension</property>
                     <text-property name="displayName">Loan Officer</text-property>
                     <text-property name="heading">Loan Officer</text-property>
                 </structure>
                 <structure>
-                    <property name="columnName">display_name</property>
-                    <property name="analysis">dimension</property>
-                    <text-property name="displayName">Client</text-property>
-                    <text-property name="heading">Client</text-property>
-                </structure>
-                <structure>
-                    <property name="columnName">account_no</property>
-                    <property name="analysis">dimension</property>
-                    <text-property name="displayName">Loan Account No.</text-property>
-                    <text-property name="heading">Loan Account No.</text-property>
-                </structure>
-                <structure>
                     <property name="columnName">Product</property>
+                    <property name="alias">Product</property>
                     <property name="analysis">dimension</property>
                     <text-property name="displayName">Product</text-property>
                     <text-property name="heading">Product</text-property>
                 </structure>
                 <structure>
-                    <property name="columnName">Fund</property>
-                    <property name="analysis">dimension</property>
-                    <text-property name="displayName">Fund</text-property>
-                    <text-property name="heading">Fund</text-property>
-                </structure>
-                <structure>
                     <property name="columnName">Loan Amount</property>
+                    <property name="alias">Loan Amount</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Loan Amount</text-property>
                     <text-property name="heading">Loan Amount</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Annual Nominal Interest Rate</property>
+                    <property name="alias">Annual Nominal Interest Rate</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Annual Nominal Interest Rate</text-property>
                     <text-property name="heading">Annual Nominal Interest Rate</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Disbursed Date</property>
+                    <property name="alias">Disbursed Date</property>
                     <property name="analysis">dimension</property>
                     <text-property name="displayName">Disbursed Date</text-property>
                     <text-property name="heading">Disbursed Date</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Expected Matured On</property>
+                    <property name="alias">Expected Matured On</property>
                     <property name="analysis">dimension</property>
                     <text-property name="displayName">Expected Matured On</text-property>
                     <text-property name="heading">Expected Matured On</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Principal Repaid</property>
+                    <property name="alias">Principal Repaid</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Principal Repaid</text-property>
                     <text-property name="heading">Principal Repaid</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Principal Outstanding</property>
+                    <property name="alias">Principal Outstanding</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Principal Outstanding</text-property>
                     <text-property name="heading">Principal Outstanding</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Principal Overdue</property>
+                    <property name="alias">Principal Overdue</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Principal Overdue</text-property>
                     <text-property name="heading">Principal Overdue</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Interest Repaid</property>
+                    <property name="alias">Interest Repaid</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Interest Repaid</text-property>
                     <text-property name="heading">Interest Repaid</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Interest Outstanding</property>
+                    <property name="alias">Interest Outstanding</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Interest Outstanding</text-property>
                     <text-property name="heading">Interest Outstanding</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Interest Overdue</property>
+                    <property name="alias">Interest Overdue</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Interest Overdue</text-property>
                     <text-property name="heading">Interest Overdue</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Fees Repaid</property>
+                    <property name="alias">Fees Repaid</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Fees Repaid</text-property>
                     <text-property name="heading">Fees Repaid</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Fees Outstanding</property>
+                    <property name="alias">Fees Outstanding</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Fees Outstanding</text-property>
                     <text-property name="heading">Fees Outstanding</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Fees Overdue</property>
+                    <property name="alias">Fees Overdue</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Fees Overdue</text-property>
                     <text-property name="heading">Fees Overdue</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Penalties Repaid</property>
+                    <property name="alias">Penalties Repaid</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Penalties Repaid</text-property>
                     <text-property name="heading">Penalties Repaid</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Penalties Outstanding</property>
+                    <property name="alias">Penalties Outstanding</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Penalties Outstanding</text-property>
                     <text-property name="heading">Penalties Outstanding</text-property>
                 </structure>
                 <structure>
                     <property name="columnName">Penalties Overdue</property>
+                    <property name="alias">Penalties Overdue</property>
                     <property name="analysis">measure</property>
                     <text-property name="displayName">Penalties Overdue</text-property>
                     <text-property name="heading">Penalties Overdue</text-property>
@@ -427,12 +417,12 @@
                     </structure>
                     <structure>
                         <property name="position">6</property>
-                        <property name="name">display_name</property>
+                        <property name="name">Client</property>
                         <property name="dataType">string</property>
                     </structure>
                     <structure>
                         <property name="position">7</property>
-                        <property name="name">account_no</property>
+                        <property name="name">Loan Account No.</property>
                         <property name="dataType">string</property>
                     </structure>
                     <structure>
@@ -534,175 +524,150 @@
                     <property name="name">Office/Branch</property>
                     <property name="nativeName">Office/Branch</property>
                     <property name="dataType">string</property>
-                    <property name="nativeDataType">12</property>
                 </structure>
                 <structure>
                     <property name="position">2</property>
                     <property name="name">name</property>
                     <property name="nativeName">name</property>
                     <property name="dataType">string</property>
-                    <property name="nativeDataType">12</property>
                 </structure>
                 <structure>
                     <property name="position">3</property>
                     <property name="name">id</property>
                     <property name="nativeName">id</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">-5</property>
                 </structure>
                 <structure>
                     <property name="position">4</property>
                     <property name="name">Currency</property>
                     <property name="nativeName">Currency</property>
                     <property name="dataType">string</property>
-                    <property name="nativeDataType">12</property>
                 </structure>
                 <structure>
                     <property name="position">5</property>
                     <property name="name">Loan Officer</property>
                     <property name="nativeName">Loan Officer</property>
                     <property name="dataType">string</property>
-                    <property name="nativeDataType">12</property>
                 </structure>
                 <structure>
                     <property name="position">6</property>
-                    <property name="name">display_name</property>
-                    <property name="nativeName">display_name</property>
+                    <property name="name">Client</property>
+                    <property name="nativeName">Client</property>
                     <property name="dataType">string</property>
-                    <property name="nativeDataType">12</property>
                 </structure>
                 <structure>
                     <property name="position">7</property>
-                    <property name="name">account_no</property>
-                    <property name="nativeName">account_no</property>
+                    <property name="name">Loan Account No.</property>
+                    <property name="nativeName">Loan Account No.</property>
                     <property name="dataType">string</property>
-                    <property name="nativeDataType">12</property>
                 </structure>
                 <structure>
                     <property name="position">8</property>
                     <property name="name">Product</property>
                     <property name="nativeName">Product</property>
                     <property name="dataType">string</property>
-                    <property name="nativeDataType">12</property>
                 </structure>
                 <structure>
                     <property name="position">9</property>
                     <property name="name">Fund</property>
                     <property name="nativeName">Fund</property>
                     <property name="dataType">string</property>
-                    <property name="nativeDataType">12</property>
                 </structure>
                 <structure>
                     <property name="position">10</property>
                     <property name="name">Loan Amount</property>
                     <property name="nativeName">Loan Amount</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">11</property>
                     <property name="name">Annual Nominal Interest Rate</property>
                     <property name="nativeName">Annual Nominal Interest Rate</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">12</property>
                     <property name="name">Disbursed Date</property>
                     <property name="nativeName">Disbursed Date</property>
                     <property name="dataType">date</property>
-                    <property name="nativeDataType">91</property>
                 </structure>
                 <structure>
                     <property name="position">13</property>
                     <property name="name">Expected Matured On</property>
                     <property name="nativeName">Expected Matured On</property>
                     <property name="dataType">date</property>
-                    <property name="nativeDataType">91</property>
                 </structure>
                 <structure>
                     <property name="position">14</property>
                     <property name="name">Principal Repaid</property>
                     <property name="nativeName">Principal Repaid</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">15</property>
                     <property name="name">Principal Outstanding</property>
                     <property name="nativeName">Principal Outstanding</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">16</property>
                     <property name="name">Principal Overdue</property>
                     <property name="nativeName">Principal Overdue</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">17</property>
                     <property name="name">Interest Repaid</property>
                     <property name="nativeName">Interest Repaid</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">18</property>
                     <property name="name">Interest Outstanding</property>
                     <property name="nativeName">Interest Outstanding</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">19</property>
                     <property name="name">Interest Overdue</property>
                     <property name="nativeName">Interest Overdue</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">20</property>
                     <property name="name">Fees Repaid</property>
                     <property name="nativeName">Fees Repaid</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">21</property>
                     <property name="name">Fees Outstanding</property>
                     <property name="nativeName">Fees Outstanding</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">22</property>
                     <property name="name">Fees Overdue</property>
                     <property name="nativeName">Fees Overdue</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">23</property>
                     <property name="name">Penalties Repaid</property>
                     <property name="nativeName">Penalties Repaid</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">24</property>
                     <property name="name">Penalties Outstanding</property>
                     <property name="nativeName">Penalties Outstanding</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
                 <structure>
                     <property name="position">25</property>
                     <property name="name">Penalties Overdue</property>
                     <property name="nativeName">Penalties Overdue</property>
                     <property name="dataType">decimal</property>
-                    <property name="nativeDataType">3</property>
                 </structure>
             </list-property>
             <xml-property name="queryText"><![CDATA[SELECT 
@@ -710,12 +675,12 @@
         ((LENGTH(ounder.hierarchy) - LENGTH(REPLACE(ounder.hierarchy, '.', ''))) - 1)), ounder.name) AS "Office/Branch",
     ounder.name, 
     ounder.id,
-    COALESCE(cur.display_symbol, l.currency_code) AS Currency,
+    COALESCE(cur.display_symbol, l.currency_code) AS "Currency",
     COALESCE(lo.display_name, '-') AS "Loan Officer", 
     c.display_name AS "Client", 
     l.account_no AS "Loan Account No.",
     COALESCE(pl.name, '-') AS "Product", 
-    COALESCE(f.name, '-') AS Fund,  
+    COALESCE(f.name, '-') AS "Fund",  
     COALESCE(l.principal_amount, 0) AS "Loan Amount", 
     COALESCE(l.annual_nominal_interest_rate, 0) AS "Annual Nominal Interest Rate", 
     DATE(l.disbursedon_date) AS "Disbursed Date", 
@@ -959,15 +924,15 @@ GROUP BY
                     <property name="dataType">string</property>
                 </structure>
                 <structure>
-                    <property name="name">display_name</property>
+                    <property name="name">Client</property>
                     <text-property name="displayName">Client</text-property>
-                    <expression name="expression" type="javascript">dataSetRow["display_name"]</expression>
+                    <expression name="expression" type="javascript">dataSetRow["Client"]</expression>
                     <property name="dataType">string</property>
                 </structure>
                 <structure>
-                    <property name="name">account_no</property>
+                    <property name="name">Loan Account No.</property>
                     <text-property name="displayName">Loan Account No.</text-property>
-                    <expression name="expression" type="javascript">dataSetRow["account_no"]</expression>
+                    <expression name="expression" type="javascript">dataSetRow["Loan Account No."]</expression>
                     <property name="dataType">string</property>
                 </structure>
                 <structure>
@@ -1263,12 +1228,12 @@ GROUP BY
                     </cell>
                     <cell id="83">
                         <data id="165">
-                            <property name="resultSetColumn">display_name</property>
+                            <property name="resultSetColumn">Client</property>
                         </data>
                     </cell>
                     <cell id="84">
                         <data id="167">
-                            <property name="resultSetColumn">account_no</property>
+                            <property name="resultSetColumn">Loan Account No.</property>
                         </data>
                     </cell>
                     <cell id="85">
