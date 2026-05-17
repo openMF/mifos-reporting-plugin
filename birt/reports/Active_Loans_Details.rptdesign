@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<report xmlns="http://www.eclipse.org/birt/2005/design" version="3.2.23" id="1">
-    <property name="createdBy">Eclipse BIRT Designer Version 4.2.2.v201301221637 Build &lt;4.2.2.v20130206-1509></property>
+<report xmlns="http://www.eclipse.org/birt/2005/design" version="3.2.27" id="1">
+    <property name="createdBy">Eclipse BIRT Designer Version 4.23.0.v202512100941</property>
+    <list-property name="propertyBindings">
+        <structure>
+            <property name="name">queryText</property>
+            <property name="id">8</property>
+        </structure>
+        <structure>
+            <property name="name">queryTimeOut</property>
+            <property name="id">8</property>
+        </structure>
+        <structure>
+            <property name="name">rowFetchSize</property>
+            <property name="id">8</property>
+        </structure>
+    </list-property>
     <property name="units">in</property>
     <property name="iconFile">/templates/blank_report.gif</property>
     <property name="layoutPreference">auto layout</property>
@@ -124,14 +138,15 @@
                     <name>disabledContentBidiFormatStr</name>
                 </ex-property>
             </list-property>
-            <property name="odaDriverClass">org.mariadb.jdbc.Driver</property>
-            <property name="odaURL">jdbc:mariadb://localhost:3306/fineract_default</property>
-            <property name="odaUser">root</property>
-            <encrypted-property name="odaPassword" encryptionID="base64">bXlzcWw=</encrypted-property>
+            <property name="odaDriverClass">org.postgresql.Driver</property>
+            <property name="odaURL">jdbc:postgresql://127.0.0.1:5432/fineract_default</property>
+            <property name="odaUser">postgres</property>
+            <encrypted-property name="odaPassword" encryptionID="base64">Yzc3MWUzZTk5Yjc2YjgwOGZiNjk3MmRlZGI1YTJmYTNiNDVhZjcxYzFkMTAzM2Q1Y2I0ZjY3MjViMGRmMjg5MA==</encrypted-property>
         </oda-data-source>
     </data-sources>
     <data-sets>
         <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc.JdbcSelectDataSet" name="LoanDS" id="8">
+            <property name="nullsOrdering">nulls lowest</property>
             <list-property name="columnHints">
                 <structure>
                     <property name="columnName">Office/Branch</property>
@@ -705,26 +720,21 @@
     COALESCE(l.annual_nominal_interest_rate, 0) AS "Annual Nominal Interest Rate", 
     DATE(l.disbursedon_date) AS "Disbursed Date", 
     DATE(l.expected_maturedon_date) AS "Expected Matured On",
-
     COALESCE(l.principal_repaid_derived, 0) AS "Principal Repaid",
     COALESCE(l.principal_outstanding_derived, 0) AS "Principal Outstanding",
     COALESCE(laa.principal_overdue_derived, 0) AS "Principal Overdue",
-
     COALESCE(l.interest_repaid_derived, 0.00) AS "Interest Repaid",
     COALESCE(l.interest_outstanding_derived, 0) AS "Interest Outstanding",
     COALESCE(laa.interest_overdue_derived, 0) AS "Interest Overdue",
-
     COALESCE(l.fee_charges_repaid_derived, 0) AS "Fees Repaid",
     COALESCE(l.fee_charges_outstanding_derived, 0) AS "Fees Outstanding",
     COALESCE(laa.fee_charges_overdue_derived, 0) AS "Fees Overdue",
-
     COALESCE(l.penalty_charges_repaid_derived, 0) AS "Penalties Repaid",
     COALESCE(l.penalty_charges_outstanding_derived, 0) AS "Penalties Outstanding",
     COALESCE(laa.penalty_charges_overdue_derived, 0) AS "Penalties Overdue" 
-
 FROM m_office o 
 JOIN m_office ounder ON ounder.hierarchy LIKE CONCAT(o.hierarchy, '%') 
-    AND ounder.hierarchy LIKE CONCAT(?, '%') -- Param 1: userhierarchy
+    AND ounder.hierarchy LIKE CONCAT(?, '%') 
 JOIN m_client c ON c.office_id = ounder.id 
 JOIN m_loan l ON l.client_id = c.id 
 JOIN m_product_loan pl ON pl.id = l.product_id 
@@ -732,15 +742,13 @@ LEFT JOIN m_staff lo ON lo.id = l.loan_officer_id
 LEFT JOIN m_currency cur ON cur.code = l.currency_code 
 LEFT JOIN m_fund f ON f.id = l.fund_id 
 LEFT JOIN m_loan_arrears_aging laa ON laa.loan_id = l.id 
-
 WHERE o.id = ? -- Param 2: branch
-AND (COALESCE(l.loan_officer_id, -10) = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) -- Param 3 & 4: loanOfficer
-AND (l.currency_code = ? OR ? = '-1') -- Param 5 & 6: currencyId (String comparison)
-AND (l.product_id = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) -- Param 7 & 8: loanProductId
-AND (COALESCE(l.fund_id, -10) = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) -- Param 9 & 10: fundId
-AND (COALESCE(l.loanpurpose_cv_id, -10) = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) -- Param 11 & 12: loanPurposeId
+AND (COALESCE(l.loan_officer_id, -10) = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) 
+AND (l.currency_code = ? OR ? = '-1') 
+AND (l.product_id = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) 
+AND (COALESCE(l.fund_id, -10) = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) 
+AND (COALESCE(l.loanpurpose_cv_id, -10) = CAST(? AS INTEGER) OR CAST(? AS INTEGER) = -1) 
 AND l.loan_status_id = 300 
-
 GROUP BY 
     l.id,
     ounder.id,
