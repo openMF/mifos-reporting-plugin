@@ -2,12 +2,13 @@ package org.apache.fineract.infrastructure.report.service;
 
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.report.dto.ArchivoSICVECA;
@@ -38,20 +39,23 @@ public class NativeReportStrategyComponent {
                 || "Reporte45Xml".equalsIgnoreCase(reportName);
     }
 
-    public Response processNativeRequest(String reportName, MultivaluedMap<String, String> queryParams) {
+    public Response processNativeRequest(String reportName, Map<String, String> queryParams) {
 
-        // ----------------------------------------------------------------------------------------
-        // CASO 1: REPORTE 44 (XML SUGEF)
-        // ----------------------------------------------------------------------------------------
         if (reportName.equalsIgnoreCase("Reporte44Xml")) {
             logger.debug("PROCESANDO REPORTE 44 NATIVO POR COMPONENTE (XML)");
             try {
-                String startDate = queryParams.getFirst("R_startDate");
-                String endDate = queryParams.getFirst("R_endDate");
+                String startDateParam = queryParams.get("startDate");
+                String endDateParam = queryParams.get("endDate");
 
-                if (StringUtils.isBlank(startDate) || StringUtils.isBlank(endDate)) {
-                    startDate = LocalDate.now().minusMonths(1).withDayOfMonth(1).format(DateTimeFormatter.ISO_LOCAL_DATE);
-                    endDate = LocalDate.now().withDayOfMonth(1).format(DateTimeFormatter.ISO_LOCAL_DATE);
+                LocalDate startDate;
+                LocalDate endDate;
+
+                if (StringUtils.isBlank(startDateParam) || StringUtils.isBlank(endDateParam)) {
+                    startDate = LocalDate.now().minusMonths(1).withDayOfMonth(1);
+                    endDate = LocalDate.now().withDayOfMonth(1);
+                } else {
+                    startDate = LocalDate.parse(startDateParam);
+                    endDate = LocalDate.parse(endDateParam);
                 }
 
                 ArchivoSICVECA archivo = new ArchivoSICVECA();
@@ -60,7 +64,7 @@ public class NativeReportStrategyComponent {
                 encabezado.setVersionClaseDato("1.0");
                 encabezado.setArchivo(4401);
                 encabezado.setVersionArchivo("1.0");
-                encabezado.setPeriodo(LocalDate.parse(startDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                encabezado.setPeriodo(startDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
                 encabezado.setIdEntidad("3102934185");
                 encabezado.setTipoCarga(1);
                 encabezado.setTipoMoneda(1);
@@ -77,24 +81,27 @@ public class NativeReportStrategyComponent {
             }
         }
 
-        // ----------------------------------------------------------------------------------------
-        // CASO 2: REPORTE 45 (XML SUGEF - NUEVO)
-        // ----------------------------------------------------------------------------------------
         else if (reportName.equalsIgnoreCase("Reporte45Xml")) {
             logger.debug("PROCESANDO REPORTE 45 NATIVO POR COMPONENTE (XML)");
             try {
-                String startDate = queryParams.getFirst("R_startDate");
-                String endDate = queryParams.getFirst("R_endDate");
-                String officeParam = queryParams.getFirst("R_officeId");
+                String startDateParam = queryParams.get("startDate");
+                String endDateParam = queryParams.get("endDate");
+                String officeParam = queryParams.get("officeId");
 
                 if (StringUtils.isBlank(officeParam)) {
-                    throw new PlatformDataIntegrityException("error.msg.parameter.required", "El parametro R_officeId es obligatorio para el Reporte 45");
+                    throw new PlatformDataIntegrityException("error.msg.parameter.required", "El parametro officeId es obligatorio para el Reporte 45");
                 }
                 Integer officeId = Integer.parseInt(officeParam);
 
-                if (StringUtils.isBlank(startDate) || StringUtils.isBlank(endDate)) {
-                    startDate = LocalDate.now().minusMonths(1).withDayOfMonth(1).format(DateTimeFormatter.ISO_LOCAL_DATE);
-                    endDate = LocalDate.now().withDayOfMonth(1).format(DateTimeFormatter.ISO_LOCAL_DATE);
+                LocalDate startDate;
+                LocalDate endDate;
+
+                if (StringUtils.isBlank(startDateParam) || StringUtils.isBlank(endDateParam)) {
+                    startDate = LocalDate.now().minusMonths(1).withDayOfMonth(1);
+                    endDate = LocalDate.now().withDayOfMonth(1);
+                } else {
+                    startDate = LocalDate.parse(startDateParam);
+                    endDate = LocalDate.parse(endDateParam);
                 }
 
                 ArchivoSICVECA archivo = new ArchivoSICVECA();
@@ -103,7 +110,7 @@ public class NativeReportStrategyComponent {
                 encabezado.setVersionClaseDato("1.0");
                 encabezado.setArchivo(4501);
                 encabezado.setVersionArchivo("1.0");
-                encabezado.setPeriodo(LocalDate.parse(startDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                encabezado.setPeriodo(startDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
                 encabezado.setIdEntidad("3102934185");
                 encabezado.setTipoCarga(1);
                 encabezado.setTipoMoneda(1);
