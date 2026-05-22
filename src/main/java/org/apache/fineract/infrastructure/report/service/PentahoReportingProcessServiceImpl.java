@@ -1,17 +1,3 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one or more contributor license
- * agreements. See the NOTICE file distributed with this work for additional information regarding
- * copyright ownership. The ASF licenses this file to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance with the License. You may obtain a
- * copy of the License at
- *
- * <p>http://www.apache.org/licenses/LICENSE-2.0
- *
- * <p>Unless required by applicable law or agreed to in writing, software distributed under the
- * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- * express or implied. See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package org.apache.fineract.infrastructure.report.service;
 
 import static org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection.toJdbcUrl;
@@ -82,7 +68,6 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
   private final PlatformSecurityContext context;
   private final DataSource tenantDataSource;
 
-  // Componente inyectado encargado del bypass y procesamiento de los xml SUGEF nativos
   private final NativeReportStrategyComponent nativeReportStrategyComponent;
 
   @Value("${FINERACT_PENTAHO_REPORTS_PATH}")
@@ -138,9 +123,41 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
   public Response processRequest(
           final String reportName, final MultivaluedMap<String, String> queryParams) {
 
-    // INTERCEPCIÓN COHERENTE: Si es un reporte nativo (Reporte44Xml o Reporte45Xml) delegamos al componente
     if (this.nativeReportStrategyComponent.isNativeReport(reportName)) {
-      return this.nativeReportStrategyComponent.processNativeRequest(reportName, queryParams);
+      final Map<String, String> reportParams = getReportParams(queryParams);
+      Map<String, String> isoParams = new HashMap<>();
+
+      String outParam = queryParams.getFirst("output-type");
+      isoParams.put("output-type", StringUtils.isNotBlank(outParam) ? outParam : "XML");
+
+      for (Map.Entry<String, String> entry : reportParams.entrySet()) {
+        String key = entry.getKey();
+        String value = entry.getValue();
+
+        if ((key.equalsIgnoreCase("startDate") || key.equalsIgnoreCase("endDate"))
+                && value != null && value.contains(" ")) {
+          try {
+            String limpia = value.trim();
+            java.time.format.DateTimeFormatter formatterEs =
+                    java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", new Locale("es", "CR"));
+            java.time.LocalDate localDate = java.time.LocalDate.parse(limpia, formatterEs);
+            value = localDate.toString();
+          } catch (Exception e) {
+            try {
+              java.time.format.DateTimeFormatter formatterEn =
+                      java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
+              java.time.LocalDate localDate = java.time.LocalDate.parse(value.trim(), formatterEn);
+              value = localDate.toString();
+            } catch (Exception ex) {
+              logger.warn("No se pudo parsear el formato regional de la fecha '{}', viajara cruda.", value);
+            }
+          }
+        }
+        isoParams.put(key, value);
+      }
+
+      logger.info("Delegando reporte nativo SUGEF '{}' con parametros normalizados ISO: {}", reportName, isoParams);
+      return this.nativeReportStrategyComponent.processNativeRequest(reportName, isoParams);
     }
 
     final var outputTypeParam = queryParams.getFirst("output-type");
@@ -162,7 +179,6 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
               "error.msg.invalid.outputType", "No matching Output Type: " + outputType);
     }
 
-    // FLUJO PENTAHO TRADICIONAL (.PRPT)
     String reportPath;
     if (locale != null && !"en".equals(locale.toString().toLowerCase())) {
       reportPath = getReportPath() + reportName + "_" + locale.toString().toLowerCase() + ".prpt";
@@ -297,7 +313,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       final var tenant = ThreadLocalContextUtil.getTenant();
       final var tenantConnection = tenant.getConnection();
       String protocol = toProtocol(this.tenantDataSource);
-      Environment environment = applicationContext.getEnvironment(); // Corregida inyección duplicada de contextVar
+      Environment environment = applicationContext.getEnvironment();
       String tenantUrl =
               toJdbcUrl(
                       protocol,
@@ -340,6 +356,8 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
     for (final String k : keys) {
       if (k.startsWith("R_")) {
         reportParams.put(k.substring(2), queryParams.get(k).get(0));
+      } else if (k.equalsIgnoreCase("startDate") || k.equalsIgnoreCase("endDate") || k.equalsIgnoreCase("output-type")) {
+        reportParams.put(k, queryParams.get(k).get(0));
       }
     }
     return reportParams;
