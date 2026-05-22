@@ -58,6 +58,7 @@ import org.pentaho.reporting.engine.classic.core.modules.output.pageable.pdf.Pdf
 import org.pentaho.reporting.engine.classic.core.modules.output.table.csv.CSVReportUtil;
 import org.pentaho.reporting.engine.classic.core.modules.output.table.html.HtmlReportUtil;
 import org.pentaho.reporting.engine.classic.core.modules.output.table.xls.ExcelReportUtil;
+import org.pentaho.reporting.engine.classic.core.modules.output.pageable.xml.XmlPageReportUtil;
 import org.pentaho.reporting.engine.classic.core.parameters.ParameterDefinitionEntry;
 import org.pentaho.reporting.libraries.resourceloader.Resource;
 import org.pentaho.reporting.libraries.resourceloader.ResourceManager;
@@ -234,7 +235,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
         return Response.ok().entity(baos.toByteArray()).type("text/html").build();
 
       } else if ("XML".equalsIgnoreCase(outputType)) {
-        XMLReportUtil.createXml(masterReport, baos);
+        XmlPageReportUtil.createXml(masterReport, baos);
         return Response.ok()
                 .entity(baos.toByteArray())
                 .type("application/xml")
