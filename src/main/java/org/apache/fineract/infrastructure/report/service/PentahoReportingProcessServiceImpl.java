@@ -75,9 +75,14 @@ import org.springframework.stereotype.Service;
 public class PentahoReportingProcessServiceImpl implements ReportingProcessService {
 
   private static final Logger logger =
-      LoggerFactory.getLogger(PentahoReportingProcessServiceImpl.class);
+          LoggerFactory.getLogger(PentahoReportingProcessServiceImpl.class);
   private final String mifosBaseDir = System.getProperty("user.home") + File.separator + ".mifosx";
   private final DatabasePasswordEncryptor databasePasswordEncryptor;
+  private final PlatformSecurityContext context;
+  private final DataSource tenantDataSource;
+
+  // Componente inyectado encargado del bypass y procesamiento de los xml SUGEF nativos
+  private final NativeReportStrategyComponent nativeReportStrategyComponent;
 
   @Value("${FINERACT_PENTAHO_REPORTS_PATH}")
   private String fineractPentahoBaseDir;
@@ -85,24 +90,20 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
   @Value("${FINERACT_PENTAHO_REPORTS_LOCALE}")
   private String fineractPentahoLocale;
 
-  private final PlatformSecurityContext context;
-  private final DataSource tenantDataSource;
-
   @Autowired FineractProperties fineractProperties;
-
   @Autowired ApplicationContext applicationContext;
-
-  @Autowired ApplicationContext contextVar;
 
   @Autowired
   public PentahoReportingProcessServiceImpl(
-      final PlatformSecurityContext context,
-      final @Qualifier("hikariTenantDataSource") DataSource tenantDataSource,
-      DatabasePasswordEncryptor databasePasswordEncryptor) {
+          final PlatformSecurityContext context,
+          final @Qualifier("hikariTenantDataSource") DataSource tenantDataSource,
+          DatabasePasswordEncryptor databasePasswordEncryptor,
+          NativeReportStrategyComponent nativeReportStrategyComponent) {
     ClassicEngineBoot.getInstance().start();
     this.tenantDataSource = tenantDataSource;
     this.context = context;
     this.databasePasswordEncryptor = databasePasswordEncryptor;
+    this.nativeReportStrategyComponent = nativeReportStrategyComponent;
   }
 
   public List<SubReport> getSubReports(MasterReport masterReport) {
@@ -123,7 +124,6 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       Element element = section.getElement(i);
       if (element instanceof SubReport subReport) {
         subReports.add(subReport);
-        // Recursively collect subreports within subreports
         for (int j = 0; j < subReport.getElementCount(); j++) {
           if (subReport.getElement(j) instanceof Section subSection) {
             collectSubReports(subSection, subReports);
@@ -135,11 +135,16 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
 
   @Override
   public Response processRequest(
-      final String reportName, final MultivaluedMap<String, String> queryParams) {
+          final String reportName, final MultivaluedMap<String, String> queryParams) {
+
+    // INTERCEPCIÓN COHERENTE: Si es un reporte nativo (Reporte44Xml o Reporte45Xml) delegamos al componente
+    if (this.nativeReportStrategyComponent.isNativeReport(reportName)) {
+      return this.nativeReportStrategyComponent.processNativeRequest(reportName, queryParams);
+    }
+
     final var outputTypeParam = queryParams.getFirst("output-type");
     final var reportParams = getReportParams(queryParams);
     final var locale = ApiParameterHelper.extractLocale(queryParams);
-    final var language = "en";
 
     var outputType = "HTML";
     if (StringUtils.isNotBlank(outputTypeParam)) {
@@ -147,29 +152,24 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
     }
 
     if ((!outputType.equalsIgnoreCase("HTML")
-        && !outputType.equalsIgnoreCase("PDF")
-        && !outputType.equalsIgnoreCase("XLS")
-        && !outputType.equalsIgnoreCase("XLSX")
-        && !outputType.equalsIgnoreCase("CSV"))) {
+            && !outputType.equalsIgnoreCase("PDF")
+            && !outputType.equalsIgnoreCase("XLS")
+            && !outputType.equalsIgnoreCase("XLSX")
+            && !outputType.equalsIgnoreCase("XML")
+            && !outputType.equalsIgnoreCase("CSV"))) {
       throw new PlatformDataIntegrityException(
-          "error.msg.invalid.outputType", "No matching Output Type: " + outputType);
+              "error.msg.invalid.outputType", "No matching Output Type: " + outputType);
     }
 
-    // final var reportPath = mifosBaseDir + File.separator + "pentahoReports" + File.separator +
-    // reportName +
-    // ".prpt";
+    // FLUJO PENTAHO TRADICIONAL (.PRPT)
     String reportPath;
-    logger.debug("locale " + locale);
-    logger.debug("language " + language);
-    if (!"en".equals(locale.toString().toLowerCase()) && locale != null) {
+    if (locale != null && !"en".equals(locale.toString().toLowerCase())) {
       reportPath = getReportPath() + reportName + "_" + locale.toString().toLowerCase() + ".prpt";
     } else {
       reportPath = getReportPath() + reportName + ".prpt";
     }
-    var outPutInfo = "Report path: " + reportPath;
-    logger.debug("Report path: {}", outPutInfo);
+    logger.debug("Report path: {}", reportPath);
 
-    // load report definition
     final var manager = new ResourceManager();
     manager.registerDefaults();
     Resource res;
@@ -178,14 +178,12 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       res = manager.createDirectly(reportPath, MasterReport.class);
       final var masterReport = (MasterReport) res.getResource();
 
-      // Override Data Connection Factory with the driver and url
       CompoundDataFactory compoundDataFactory = (CompoundDataFactory) masterReport.getDataFactory();
       setConnectionDetail(compoundDataFactory.get(0));
 
       final var reportEnvironment = (DefaultReportEnvironment) masterReport.getReportEnvironment();
 
-      // Set Locale for the report
-      if (fineractPentahoLocale != null) {
+      if (fineractPentahoBaseDir != null) {
         Locale localeReport = new Locale.Builder().setLanguageTag(fineractPentahoLocale).build();
         reportEnvironment.setLocale(localeReport);
       } else if (locale != null) {
@@ -197,7 +195,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       List<SubReport> subReports = getSubReports(masterReport);
       for (SubReport subReport : subReports) {
         CompoundDataFactory subReportCompoundDataFactory =
-            (CompoundDataFactory) subReport.getDataFactory();
+                (CompoundDataFactory) subReport.getDataFactory();
         setConnectionDetail(subReportCompoundDataFactory.get(0));
       }
 
@@ -210,153 +208,122 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       } else if ("XLS".equalsIgnoreCase(outputType)) {
         ExcelReportUtil.createXLS(masterReport, baos);
         return Response.ok()
-            .entity(baos.toByteArray())
-            .type("application/vnd.ms-excel")
-            .header(
-                "Content-Disposition",
-                "attachment;filename=" + reportName.replaceAll(" ", "") + ".xls")
-            .build();
+                .entity(baos.toByteArray())
+                .type("application/vnd.ms-excel")
+                .header("Content-Disposition", "attachment;filename=" + reportName.replaceAll(" ", "") + ".xls")
+                .build();
 
       } else if ("XLSX".equalsIgnoreCase(outputType)) {
         ExcelReportUtil.createXLSX(masterReport, baos);
         return Response.ok()
-            .entity(baos.toByteArray())
-            .type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-            .header(
-                "Content-Disposition",
-                "attachment;filename=" + reportName.replaceAll(" ", "") + ".xlsx")
-            .build();
+                .entity(baos.toByteArray())
+                .type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .header("Content-Disposition", "attachment;filename=" + reportName.replaceAll(" ", "") + ".xlsx")
+                .build();
 
       } else if ("CSV".equalsIgnoreCase(outputType)) {
         CSVReportUtil.createCSV(masterReport, baos, "UTF-8");
         return Response.ok()
-            .entity(baos.toByteArray())
-            .type("text/csv")
-            .header(
-                "Content-Disposition",
-                "attachment;filename=" + reportName.replaceAll(" ", "") + ".csv")
-            .build();
+                .entity(baos.toByteArray())
+                .type("text/csv")
+                .header("Content-Disposition", "attachment;filename=" + reportName.replaceAll(" ", "") + ".csv")
+                .build();
 
       } else if ("HTML".equalsIgnoreCase(outputType)) {
         HtmlReportUtil.createStreamHTML(masterReport, baos);
         return Response.ok().entity(baos.toByteArray()).type("text/html").build();
 
+      } else if ("XML".equalsIgnoreCase(outputType)) {
+        XMLReportUtil.createXml(masterReport, baos);
+        return Response.ok()
+                .entity(baos.toByteArray())
+                .type("application/xml")
+                .header("Content-Disposition", "attachment;filename=" + reportName.replaceAll(" ", "") + ".xml")
+                .build();
+
       } else {
         throw new PlatformDataIntegrityException(
-            "error.msg.invalid.outputType", "No matching Output Type: " + outputType);
+                "error.msg.invalid.outputType", "No matching Output Type: " + outputType);
       }
     } catch (Throwable t) {
       logger.error("Pentaho failed", t);
       throw new PlatformDataIntegrityException(
-          "error.msg.reporting.error", "Pentaho failed: " + t.getMessage());
+              "error.msg.reporting.error", "Pentaho failed: " + t.getMessage());
     }
   }
 
   private void addParametersToReport(
-      final MasterReport report, final Map<String, String> queryParams) {
+          final MasterReport report, final Map<String, String> queryParams) {
     final var currentUser = this.context.authenticatedUser();
     try {
       final var rptParamValues = report.getParameterValues();
       final var paramsDefinition = report.getParameterDefinition();
 
-      // only allow integer, long, date and string parameter types and assume all mandatory - could
-      // go more
-      // detailed like Pawel did in Mifos later and could match incoming and Pentaho parameters
-      // better...
-      // currently assuming they come in ok... and if not an error
       for (final ParameterDefinitionEntry paramDefEntry :
-          paramsDefinition.getParameterDefinitions()) {
+              paramsDefinition.getParameterDefinitions()) {
         final var paramName = paramDefEntry.getName();
         if ((!paramName.equals("tenantUrl")
-            && (!paramName.equals("userhierarchy")
+                && (!paramName.equals("userhierarchy")
                 && !paramName.equals("username")
                 && (!paramName.equals("password") && !paramName.equals("userid"))))) {
 
-          var outPutInfo2 = "paramName:" + paramName;
-          logger.debug("paramName: {}", outPutInfo2);
+          logger.debug("paramName: {}", paramName);
 
           final var pValue = queryParams.get(paramName);
           if (StringUtils.isBlank(pValue)) {
             throw new PlatformDataIntegrityException(
-                "error.msg.reporting.error", "Pentaho Parameter: " + paramName + " - not Provided");
+                    "error.msg.reporting.error", "Pentaho Parameter: " + paramName + " - not Provided");
           }
 
           final Class<?> clazz = paramDefEntry.getValueType();
-          var outPutInfo3 =
-              "addParametersToReport("
-                  + paramName
-                  + " : "
-                  + pValue
-                  + " : "
-                  + clazz.getCanonicalName()
-                  + ")";
-          logger.debug("outputInfo: {}", outPutInfo3);
+          logger.debug("addParametersToReport({} : {} : {})", paramName, pValue, clazz.getCanonicalName());
 
           if (clazz.getCanonicalName().equalsIgnoreCase("java.lang.Integer")) {
             rptParamValues.put(paramName, Integer.parseInt(pValue));
           } else if (clazz.getCanonicalName().equalsIgnoreCase("java.lang.Long")) {
             rptParamValues.put(paramName, Long.parseLong(pValue));
           } else if (clazz.getCanonicalName().equalsIgnoreCase("java.sql.Date")) {
-            logger.debug("ParamName: {}", paramName);
-            logger.debug("ParamValue: {}", pValue.toString());
             String myDate = pValue.toString();
             SimpleDateFormat sdf = new SimpleDateFormat("dd MMMM yyyy", Locale.ENGLISH);
             Date date = sdf.parse(myDate);
-            long millis = date.getTime();
-            java.sql.Date mySQLDate = new java.sql.Date(millis);
-            rptParamValues.put(paramName, mySQLDate);
+            rptParamValues.put(paramName, new java.sql.Date(date.getTime()));
           } else {
-            logger.debug("ParamName Unknown: {}", paramName);
-            logger.debug("ParamValue Unknown: {}", pValue.toString());
             rptParamValues.put(paramName, pValue);
           }
         }
       }
 
-      // Tenant database name and current user's office hierarchy
-      // passed as parameters to allow multitenant Pentaho reporting
-      // and data scoping
       final var tenant = ThreadLocalContextUtil.getTenant();
       final var tenantConnection = tenant.getConnection();
       String protocol = toProtocol(this.tenantDataSource);
-      Environment environment = contextVar.getEnvironment();
+      Environment environment = applicationContext.getEnvironment(); // Corregida inyección duplicada de contextVar
       String tenantUrl =
-          toJdbcUrl(
-              protocol,
-              tenantConnection.getSchemaServer(),
-              tenantConnection.getSchemaServerPort(),
-              tenantConnection.getSchemaName(),
-              tenantConnection.getSchemaConnectionParameters());
+              toJdbcUrl(
+                      protocol,
+                      tenantConnection.getSchemaServer(),
+                      tenantConnection.getSchemaServerPort(),
+                      tenantConnection.getSchemaName(),
+                      tenantConnection.getSchemaConnectionParameters());
 
       final var userhierarchy = currentUser.getOffice().getHierarchy();
-      logger.debug("userhierarchy " + userhierarchy);
-      var outPutInfo4 = "db URL:" + tenantUrl + "      userhierarchy:" + userhierarchy;
-      logger.debug(outPutInfo4);
+      logger.debug("db URL: {}      userhierarchy: {}", tenantUrl, userhierarchy);
 
       rptParamValues.put("userhierarchy", userhierarchy);
-
-      final var userid = currentUser.getId();
-      var outPutInfo5 = "db URL:" + tenantUrl + "      userid:" + userid;
-      logger.debug(outPutInfo5);
-
-      rptParamValues.put("userid", userid);
-
+      rptParamValues.put("userid", currentUser.getId());
       rptParamValues.put("tenantUrl", tenantUrl.trim());
 
-      if (tenantConnection.getSchemaUsername().equalsIgnoreCase("")
-          || tenantConnection.getSchemaUsername() == null) {
+      if (StringUtils.isBlank(tenantConnection.getSchemaUsername())) {
         rptParamValues.put("username", environment.getProperty("FINERACT_DEFAULT_TENANTDB_UID"));
       } else {
         rptParamValues.put("username", tenantConnection.getSchemaUsername().trim());
       }
 
-      if (tenantConnection.getSchemaPassword().equalsIgnoreCase("")
-          || tenantConnection.getSchemaPassword() == null) {
+      if (StringUtils.isBlank(tenantConnection.getSchemaPassword())) {
         rptParamValues.put("password", environment.getProperty("FINERACT_DEFAULT_TENANTDB_PWD"));
       } else {
         rptParamValues.put(
-            "password",
-            databasePasswordEncryptor.decrypt(tenantConnection.getSchemaPassword()).trim());
+                "password",
+                databasePasswordEncryptor.decrypt(tenantConnection.getSchemaPassword()).trim());
       }
 
     } catch (Throwable t) {
@@ -369,13 +336,9 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
   public Map<String, String> getReportParams(final MultivaluedMap<String, String> queryParams) {
     final Map<String, String> reportParams = new HashMap<>();
     final var keys = queryParams.keySet();
-    String pKey;
-    String pValue;
     for (final String k : keys) {
       if (k.startsWith("R_")) {
-        pKey = k.substring(2);
-        pValue = queryParams.get(k).get(0);
-        reportParams.put(pKey, pValue);
+        reportParams.put(k.substring(2), queryParams.get(k).get(0));
       }
     }
     return reportParams;
@@ -395,18 +358,15 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
     if (dataFactory instanceof SQLReportDataFactory) {
       SQLReportDataFactory sqlReportDataFactory = (SQLReportDataFactory) dataFactory;
       final DriverConnectionProvider connectionProvider =
-          (DriverConnectionProvider) sqlReportDataFactory.getConnectionProvider();
+              (DriverConnectionProvider) sqlReportDataFactory.getConnectionProvider();
 
       Driver e = DriverManager.getDriver(getTenantUrl());
-      // Printing the driver
-      logger.debug("Driver: " + e.getClass().getName().toString());
-      connectionProvider.setDriver(e.getClass().getName().toString());
+      connectionProvider.setDriver(e.getClass().getName());
       connectionProvider.setUrl(getTenantUrl());
       connectionProvider.setProperty("user", tenantConnection.getSchemaUsername());
-      logger.debug("{}", tenantConnection.getSchemaUsername());
       connectionProvider.setProperty(
-          "password",
-          databasePasswordEncryptor.decrypt(tenantConnection.getSchemaPassword()).trim());
+              "password",
+              databasePasswordEncryptor.decrypt(tenantConnection.getSchemaPassword()).trim());
       sqlReportDataFactory.setConnectionProvider(connectionProvider);
     }
   }
@@ -415,56 +375,50 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
     final FineractPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
     final FineractPlatformTenantConnection tenantConnection = tenant.getConnection();
     String protocol = toProtocol(tenantDataSource);
-    // Default properties for Writing
     String schemaServer = tenantConnection.getSchemaServer();
     String schemaPort = tenantConnection.getSchemaServerPort();
     String schemaName = tenantConnection.getSchemaName();
     String schemaUsername = tenantConnection.getSchemaUsername();
     String schemaPassword = tenantConnection.getSchemaPassword();
     String schemaConnectionParameters = tenantConnection.getSchemaConnectionParameters();
-    // Properties to ReadOnly case
+
     if (fineractProperties.getMode().isReadOnlyMode()) {
       schemaServer =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaServer(),
-              TenantConstants.PROPERTY_RO_SCHEMA_SERVER_NAME,
-              schemaServer);
+              getPropertyValue(
+                      tenantConnection.getReadOnlySchemaServer(),
+                      TenantConstants.PROPERTY_RO_SCHEMA_SERVER_NAME,
+                      schemaServer);
       schemaPort =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaServerPort(),
-              TenantConstants.PROPERTY_RO_SCHEMA_SERVER_PORT,
-              schemaPort);
+              getPropertyValue(
+                      tenantConnection.getReadOnlySchemaServerPort(),
+                      TenantConstants.PROPERTY_RO_SCHEMA_SERVER_PORT,
+                      schemaPort);
       schemaName =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaName(),
-              TenantConstants.PROPERTY_RO_SCHEMA_SCHEMA_NAME,
-              schemaName);
+              getPropertyValue(
+                      tenantConnection.getReadOnlySchemaName(),
+                      TenantConstants.PROPERTY_RO_SCHEMA_SCHEMA_NAME,
+                      schemaName);
       schemaUsername =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaUsername(),
-              TenantConstants.PROPERTY_RO_SCHEMA_USERNAME,
-              schemaUsername);
+              getPropertyValue(
+                      tenantConnection.getReadOnlySchemaUsername(),
+                      TenantConstants.PROPERTY_RO_SCHEMA_USERNAME,
+                      schemaUsername);
       schemaPassword =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaPassword(),
-              TenantConstants.PROPERTY_RO_SCHEMA_PASSWORD,
-              schemaPassword);
+              getPropertyValue(
+                      tenantConnection.getReadOnlySchemaPassword(),
+                      TenantConstants.PROPERTY_RO_SCHEMA_PASSWORD,
+                      schemaPassword);
       schemaConnectionParameters =
-          getPropertyValue(
-              tenantConnection.getReadOnlySchemaConnectionParameters(),
-              TenantConstants.PROPERTY_RO_SCHEMA_CONNECTION_PARAMETERS,
-              schemaConnectionParameters);
+              getPropertyValue(
+                      tenantConnection.getReadOnlySchemaConnectionParameters(),
+                      TenantConstants.PROPERTY_RO_SCHEMA_CONNECTION_PARAMETERS,
+                      schemaConnectionParameters);
     }
-    String jdbcUrl =
-        toJdbcUrl(protocol, schemaServer, schemaPort, schemaName, schemaConnectionParameters);
-    logger.debug("{}", jdbcUrl);
-
-    return jdbcUrl;
+    return toJdbcUrl(protocol, schemaServer, schemaPort, schemaName, schemaConnectionParameters);
   }
 
   private String getPropertyValue(
-      final String baseValue, final String propertyName, final String defaultValue) {
-    // If the property already has set, return It
+          final String baseValue, final String propertyName, final String defaultValue) {
     if (null != baseValue) {
       return baseValue;
     }

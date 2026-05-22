@@ -92,6 +92,18 @@
 		<!--LOCAL JAR FILE
         <dependency><groupId>org.apache.fineract</groupId><artifactId>fineract-provider</artifactId><version>1.0</version><scope>system</scope><systemPath>$HOME/fineract/fineract-provider/build/libs/fineract-provider-0.0.0-2ac92089-plain.jar</systemPath></dependency>
         -->
+
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.fasterxml.jackson.dataformat</groupId>
+			<artifactId>jackson-dataformat-xml</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>org.pentaho.reporting.engine</groupId>
 			<artifactId>classic-core</artifactId>
