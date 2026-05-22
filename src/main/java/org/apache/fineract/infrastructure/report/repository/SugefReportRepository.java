@@ -1,5 +1,6 @@
 package org.apache.fineract.infrastructure.report.repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import javax.sql.DataSource;
 import org.apache.fineract.infrastructure.report.dto.Registro;
@@ -19,16 +20,13 @@ public class SugefReportRepository {
     }
 
     /**
-     * CONSULTA SQL OPTIMIZADA PARA EL REPORTE 44 XML
+     * CONSULTA SQL OPTIMIZADA PARA EL REPORTE 44 XML (SIN CTE DE FECHAS CONFLICTIVO)
      */
-    public List<Registro> obtenerTransaccionesReporte44(String fechaInicio, String fechaFin) {
+    public List<Registro> obtenerTransaccionesReporte44(LocalDate fechaInicio, LocalDate fechaFin) {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(this.dataSource);
 
         String sql = """
-            WITH ParametrosFechas AS (
-                SELECT CAST(? AS DATE) AS inicio_mes, CAST(? AS DATE) AS fin_mes
-            ),
-            EquivalenciasTipoCambio AS (
+            WITH EquivalenciasTipoCambio AS (
                 SELECT 1 AS moneda_id, 0.0019 AS factor_a_usd UNION ALL
                 SELECT 2 AS moneda_id, 1.0000 AS factor_a_usd UNION ALL
                 SELECT 3 AS moneda_id, 1.0900 AS factor_a_usd
@@ -45,9 +43,8 @@ public class SugefReportRepository {
                 INNER JOIN m_savings_account sa ON t.savings_account_id = sa.id
                 INNER JOIN m_client c ON sa.client_id = c.id
                 LEFT JOIN public."REMITTANCE_INFORMATION" ri ON t.external_id = ri."Referencia Externa" OR t.ref_no = ri."Referencia Externa"
-                CROSS JOIN ParametrosFechas p
                 LEFT JOIN EquivalenciasTipoCambio tc ON tc.moneda_id = (CASE WHEN sa.currency_code = 'CRC' THEN 1 WHEN sa.currency_code = 'USD' THEN 2 WHEN sa.currency_code = 'EUR' THEN 3 ELSE 2 END)
-                WHERE t.transaction_date >= p.inicio_mes AND t.transaction_date < p.fin_mes AND t.is_reversed = false
+                WHERE t.transaction_date >= ? AND t.transaction_date < ? AND t.is_reversed = false
             ),
             CalculoUmbrales AS (
                 SELECT *, SUM(monto_en_usd) OVER (PARTITION BY cliente_cuenta) AS acumulado_mensual_usd FROM TransaccionesBase
@@ -91,13 +88,13 @@ public class SugefReportRepository {
             r.setPaisOrigenRecursos(rs.getString("PaisOrigenRecursos"));
             r.setPaisDestinoRecursos(rs.getString("PaisDestinoRecursos"));
             return r;
-        }, fechaInicio, fechaFin);
+        }, java.sql.Date.valueOf(fechaInicio), java.sql.Date.valueOf(fechaFin));
     }
 
     /**
-     * CONSULTA SQL COMPLETA Y MAPEADA UNO A UNO PARA EL REPORTE 45 XML (SEGÚN TU XSD)
+     * CONSULTA SQL COMPLETA Y MAPEADA UNO A UNO PARA EL REPORTE 45 XML (SIN CAST INTERNO)
      */
-    public List<Registro> obtenerTransaccionesReporte45(String fechaInicio, String fechaFin, Integer officeId) {
+    public List<Registro> obtenerTransaccionesReporte45(LocalDate fechaInicio, LocalDate fechaFin, Integer officeId) {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(this.dataSource);
 
         String sql = """
@@ -134,19 +131,16 @@ public class SugefReportRepository {
             FROM m_savings_account_transaction t
             INNER JOIN m_savings_account sa ON t.savings_account_id = sa.id
             INNER JOIN m_client c ON sa.client_id = c.id
-            WHERE t.transaction_date >= CAST(? AS DATE)
-              AND t.transaction_date < CAST(? AS DATE)
+            WHERE t.transaction_date >= ?
+              AND t.transaction_date < ?
               AND c.office_id = ?
               AND t.is_reversed = false;
             """;
 
         return jdbcTemplate.query(sql, (rs, rowNum) -> {
             Registro r = new Registro();
-            // Atributos raíz
             r.setId(rs.getInt("id"));
             r.setAccion(rs.getString("accion"));
-
-            // Campos compartidos y específicos asignados al DTO de tu Registro
             r.setNumeroIdentificacion(rs.getString("NumeroIdentificacion"));
             r.setTipoIdentificacion(rs.getInt("TipoIdentificacion"));
             r.setNumeroUnicoTransaccion(rs.getString("NumeroUnicoTransaccion"));
@@ -175,6 +169,6 @@ public class SugefReportRepository {
             r.setEntidadExteriorTramitaRemesa(rs.getString("EntidadExteriorTramitaRemesa"));
             r.setDestinoRecursos(rs.getString("DestinoRecursos"));
             return r;
-        }, fechaInicio, fechaFin, officeId);
+        }, java.sql.Date.valueOf(fechaInicio), java.sql.Date.valueOf(fechaFin), officeId);
     }
 }
