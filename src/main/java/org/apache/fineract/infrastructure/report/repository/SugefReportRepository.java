@@ -15,7 +15,7 @@ public class SugefReportRepository {
     private final DataSource dataSource;
 
     @Autowired
-    public SugefReportRepository(@Qualifier("hikariTenantDataSource") DataSource dataSource) {
+    public SugefReportRepository(@Qualifier("routingDataSource") DataSource dataSource) {
         this.dataSource = dataSource;
     }
 
