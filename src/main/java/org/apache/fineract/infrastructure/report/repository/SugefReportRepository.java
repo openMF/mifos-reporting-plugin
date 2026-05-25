@@ -15,7 +15,7 @@ public class SugefReportRepository {
     private final DataSource dataSource;
 
     @Autowired
-    public SugefReportRepository(@Qualifier("hikariTenantDataSource") DataSource dataSource) {
+    public SugefReportRepository(@Qualifier("routingDataSource") DataSource dataSource) {
         this.dataSource = dataSource;
     }
 
@@ -44,8 +44,8 @@ public class SugefReportRepository {
             INNER JOIN m_client c ON sa.client_id = c.id
             LEFT JOIN public."REMITTANCE_INFORMATION" ri ON t.external_id = ri."Referencia Externa" OR t.ref_no = ri."Referencia Externa"
             LEFT JOIN EquivalenciasTipoCambio tc ON tc.moneda_id = (CASE WHEN sa.currency_code = 'CRC' THEN 1 WHEN sa.currency_code = 'USD' THEN 2 WHEN sa.currency_code = 'EUR' THEN 3 ELSE 2 END)
-            WHERE t.transaction_date >= CAST(? AS date) 
-              AND t.transaction_date < CAST(? AS date) 
+            WHERE t.transaction_date >= ?::date
+              AND t.transaction_date < ?::date 
               AND t.is_reversed = false
         ),
         CalculoUmbrales AS (
