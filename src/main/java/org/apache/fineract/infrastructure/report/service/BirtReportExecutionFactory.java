@@ -7,16 +7,14 @@
 package org.apache.fineract.infrastructure.report.service;
 
 import java.util.Locale;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportRunnable;
 import org.eclipse.birt.report.model.api.ReportDesignHandle;
 import org.eclipse.birt.report.model.api.core.IDesignElement;
 import org.springframework.stereotype.Component;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Creates execution-local BIRT report runnables from cached report templates.
@@ -49,7 +47,7 @@ public class BirtReportExecutionFactory {
 
       IDesignElement copiedElement = templateHandle.copy();
       ReportDesignHandle executionHandle = (ReportDesignHandle) copiedElement.getHandle(null);
-      
+
       executionHandle.setFileName(template.getReportName());
 
       IReportRunnable executionRunnable = reportEngine.openReportDesign(executionHandle);
