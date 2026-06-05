@@ -9,9 +9,9 @@ package org.apache.fineract.infrastructure.report.service;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
 import javax.sql.DataSource;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.config.FineractProperties;
 import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
@@ -26,6 +26,9 @@ import org.eclipse.birt.report.model.api.ReportDesignHandle;
 import org.eclipse.birt.report.model.api.SlotHandle;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Responsible for configuring BIRT report datasources with correct tenant connection details.
@@ -130,6 +133,10 @@ public class BirtDataSourceConfigurer {
           log.trace("Successfully updated datasource: {}", dataSource.getName());
         } catch (Exception e) {
           log.error("Failed to update datasource: {}", dataSource.getName(), e);
+          throw reportErrorHandler.reportError(
+              "error.msg.reporting.datasource.configuration.failed",
+              "Failed to configure datasource: " + dataSource.getName(),
+              e);
         }
       }
     }
