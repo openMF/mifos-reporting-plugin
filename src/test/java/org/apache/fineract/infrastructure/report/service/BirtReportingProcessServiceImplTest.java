@@ -48,7 +48,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class BirtReportingProcessServiceImplTest {
 
   @Mock private IReportEngine reportEngine;
-  @Mock private BirtReportLoader reportLoader;
+  @Mock private BirtReportExecutionFactory reportExecutionFactory;
   @Mock private BirtDataSourceConfigurer dataSourceConfigurer;
   @Mock private BirtParameterMapper parameterMapper;
   @Mock private BirtRenderer pdfRenderer;
@@ -128,7 +128,7 @@ class BirtReportingProcessServiceImplTest {
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
     IRunAndRenderTask task = mock(IRunAndRenderTask.class);
 
-    when(reportLoader.loadReport(anyString(), any())).thenReturn(design);
+    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
     when(design.getDesignHandle()).thenReturn(designHandle);
     when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
 
@@ -163,7 +163,7 @@ class BirtReportingProcessServiceImplTest {
   @Test
   @DisplayName("Should throw when report file is not found")
   void shouldThrowWhenReportFileNotFound() {
-    when(reportLoader.loadReport(anyString(), any()))
+    when(reportExecutionFactory.createExecutionRunnable(anyString(), any()))
         .thenThrow(
             new PlatformDataIntegrityException(
                 "error.msg.reporting.report.not.found", "Report not found"));
@@ -183,17 +183,34 @@ class BirtReportingProcessServiceImplTest {
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
     IRunAndRenderTask task = mock(IRunAndRenderTask.class);
 
-    when(reportLoader.loadReport(anyString(), any())).thenReturn(design);
+    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
     when(design.getDesignHandle()).thenReturn(designHandle);
     when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
     when(pdfRenderer.render(any(), anyString())).thenReturn(Response.ok().build());
 
     service.processRequest("sample", queryParams("PDF"));
 
-    verify(reportLoader).loadReport(eq("sample"), any());
+    verify(reportExecutionFactory).createExecutionRunnable(eq("sample"), any());
     verify(dataSourceConfigurer).configureAll(designHandle);
     verify(parameterMapper).applyParameters(eq(task), any());
     verify(pdfRenderer).render(eq(task), eq("sample"));
+  }
+
+  @Test
+  @DisplayName("Should close BIRT task after rendering")
+  void shouldCloseTaskAfterRendering() throws Exception {
+    IReportRunnable design = mock(IReportRunnable.class);
+    ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+    IRunAndRenderTask task = mock(IRunAndRenderTask.class);
+
+    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+    when(design.getDesignHandle()).thenReturn(designHandle);
+    when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
+    when(pdfRenderer.render(any(), anyString())).thenReturn(Response.ok().build());
+
+    service.processRequest("sample", queryParams("PDF"));
+
+    verify(task).close();
   }
 
   private BirtRenderer getRendererForType(String outputType) {

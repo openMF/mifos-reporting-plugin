@@ -36,7 +36,7 @@ import org.springframework.stereotype.Service;
 public class BirtReportingProcessServiceImpl implements ReportingProcessService {
 
   private final IReportEngine reportEngine;
-  private final BirtReportLoader reportLoader;
+  private final BirtReportExecutionFactory reportExecutionFactory;
   private final BirtDataSourceConfigurer dataSourceConfigurer;
   private final BirtParameterMapper parameterMapper;
   private final Map<String, BirtRenderer> birtRenderers;
@@ -51,13 +51,14 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     log.info(
         "Generating BIRT report: {} | format: {} | locale: {}", reportName, outputType, locale);
 
+    IRunAndRenderTask task = null;
     try {
-      IReportRunnable design = reportLoader.loadReport(reportName, locale);
+      IReportRunnable design = reportExecutionFactory.createExecutionRunnable(reportName, locale);
       ReportDesignHandle designHandle = (ReportDesignHandle) design.getDesignHandle();
 
       dataSourceConfigurer.configureAll(designHandle);
 
-      IRunAndRenderTask task = reportEngine.createRunAndRenderTask(design);
+      task = reportEngine.createRunAndRenderTask(design);
       task.setErrorHandlingOption(IEngineTask.CANCEL_ON_ERROR);
 
       configureLocale(task, locale);
@@ -70,6 +71,14 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
       log.error("Failed to generate BIRT report: {}", reportName, e);
       throw new PlatformDataIntegrityException(
           "error.msg.reporting.error", "Report generation failed: " + e.getMessage(), e);
+    } finally {
+      if (task != null) {
+        try {
+          task.close();
+        } catch (Exception e) {
+          log.warn("Failed to close BIRT report task for report: {}", reportName, e);
+        }
+      }
     }
   }
 

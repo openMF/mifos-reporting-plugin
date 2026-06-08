@@ -130,6 +130,10 @@ public class BirtDataSourceConfigurer {
           log.trace("Successfully updated datasource: {}", dataSource.getName());
         } catch (Exception e) {
           log.error("Failed to update datasource: {}", dataSource.getName(), e);
+          throw reportErrorHandler.reportError(
+              "error.msg.reporting.datasource.configuration.failed",
+              "Failed to configure datasource: " + dataSource.getName(),
+              e);
         }
       }
     }
