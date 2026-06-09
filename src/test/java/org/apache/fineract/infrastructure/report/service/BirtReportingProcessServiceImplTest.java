@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -211,6 +212,96 @@ class BirtReportingProcessServiceImplTest {
     service.processRequest("sample", queryParams("PDF"));
 
     verify(task).close();
+  }
+
+  @Test
+  @DisplayName("Should default to HTML when output type is missing")
+  void shouldDefaultToHtmlWhenOutputTypeIsMissing() throws Exception {
+
+    IReportRunnable design = mock(IReportRunnable.class);
+    ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+    IRunAndRenderTask task = mock(IRunAndRenderTask.class);
+
+    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+
+    when(design.getDesignHandle()).thenReturn(designHandle);
+
+    when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
+
+    when(htmlRenderer.render(any(), anyString()))
+        .thenReturn(Response.ok().type("text/html").build());
+
+    MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
+
+    Response response = service.processRequest("sample", params);
+
+    assertEquals(200, response.getStatus());
+
+    verify(htmlRenderer).render(eq(task), eq("sample"));
+  }
+
+  @Test
+  @DisplayName("Should ignore blank report parameters")
+  void shouldIgnoreBlankReportParameters() {
+
+    MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
+
+    params.add("R_clientId", "");
+    params.add("R_officeId", "1");
+
+    Map<String, String> result = service.getReportParams(params);
+
+    assertEquals(1, result.size());
+    assertEquals("1", result.get("officeId"));
+  }
+
+  @Test
+  @DisplayName("Should close task when renderer throws exception")
+  void shouldCloseTaskWhenRendererThrowsException() throws Exception {
+
+    IReportRunnable design = mock(IReportRunnable.class);
+    ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+    IRunAndRenderTask task = mock(IRunAndRenderTask.class);
+
+    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+
+    when(design.getDesignHandle()).thenReturn(designHandle);
+
+    when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
+
+    when(pdfRenderer.render(any(), anyString()))
+        .thenThrow(new RuntimeException("Renderer failure"));
+
+    assertThrows(
+        PlatformDataIntegrityException.class,
+        () -> service.processRequest("sample", queryParams("PDF")));
+
+    verify(task).close();
+  }
+
+  @Test
+  @DisplayName("Should propagate datasource configuration failures")
+  void shouldPropagateDatasourceConfigurationFailures() {
+
+    IReportRunnable design = mock(IReportRunnable.class);
+    ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+
+    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+
+    when(design.getDesignHandle()).thenReturn(designHandle);
+
+    doThrow(
+            new PlatformDataIntegrityException(
+                "error.msg.datasource", "Datasource configuration failed"))
+        .when(dataSourceConfigurer)
+        .configureAll(designHandle);
+
+    PlatformDataIntegrityException exception =
+        assertThrows(
+            PlatformDataIntegrityException.class,
+            () -> service.processRequest("sample", queryParams("PDF")));
+
+    assertEquals("error.msg.reporting.error", exception.getGlobalisationMessageCode());
   }
 
   private BirtRenderer getRendererForType(String outputType) {
