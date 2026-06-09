@@ -100,6 +100,12 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       final @Qualifier("hikariTenantDataSource") DataSource tenantDataSource,
       DatabasePasswordEncryptor databasePasswordEncryptor) {
     ClassicEngineBoot.getInstance().start();
+    // 2. Register custom TTF fonts (must happen AFTER engine boot)
+    //    Uses FINERACT_PENTAHO_REPORTS_PATH as the base directory;
+    //    fonts are expected in <base>/fonts/ or via
+    //    FINERACT_PENTAHO_CUSTOM_FONTS_DIR env variable.
+    CustomFontRegistrar.registerCustomFonts(this.fineractPentahoBaseDir);
+    
     this.tenantDataSource = tenantDataSource;
     this.context = context;
     this.databasePasswordEncryptor = databasePasswordEncryptor;
