@@ -124,7 +124,8 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
   }
 
   @Override
-  public Map<String, String> getReportParams(String reportName, MultivaluedMap<String, String> queryParams) {
+  public Map<String, String> getReportParams(
+      String reportName, MultivaluedMap<String, String> queryParams) {
     Map<String, String> params = new HashMap<>();
     queryParams.keySet().stream()
         .filter(k -> k.startsWith("R_"))

@@ -32,21 +32,21 @@ public class BirtEngineConfiguration {
 
   private static final Logger logger = LoggerFactory.getLogger(BirtEngineConfiguration.class);
   private IReportEngine reportEngine;
-  
+
   @Bean
-    public static BeanFactoryPostProcessor primaryBeanFactoryPostProcessor() {
-        return beanFactory -> {
-            // Check if the BeanFactory supports bean definition manipulation
-            if (beanFactory instanceof BeanDefinitionRegistry registry) {
-                String beanName = "birtReportingProcessServiceImpl";
-                
-                // If the plugin bean is registered, force it to be primary
-                if (registry.containsBeanDefinition(beanName)) {
-                    registry.getBeanDefinition(beanName).setPrimary(true);
-                }
-            }
-        };
-    }
+  public static BeanFactoryPostProcessor primaryBeanFactoryPostProcessor() {
+    return beanFactory -> {
+      // Check if the BeanFactory supports bean definition manipulation
+      if (beanFactory instanceof BeanDefinitionRegistry registry) {
+        String beanName = "birtReportingProcessServiceImpl";
+
+        // If the plugin bean is registered, force it to be primary
+        if (registry.containsBeanDefinition(beanName)) {
+          registry.getBeanDefinition(beanName).setPrimary(true);
+        }
+      }
+    };
+  }
 
   @PostConstruct
   public void startBirtEngine() {
