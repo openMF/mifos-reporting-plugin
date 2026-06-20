@@ -15,7 +15,7 @@
 package org.apache.fineract.infrastructure.report.service;
 
 import static org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection.toJdbcUrl;
-import static org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection.toProtocol;
+import static org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection.resolveProtocol;
 
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
@@ -42,6 +42,7 @@ import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.core.service.database.DatabasePasswordEncryptor;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.report.annotation.ReportService;
+import org.apache.fineract.infrastructure.report.utils.DataSourceUtils;
 import org.apache.fineract.infrastructure.security.constants.TenantConstants;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.pentaho.reporting.engine.classic.core.ClassicEngineBoot;
@@ -67,10 +68,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 @Service
+@Primary
 @ReportService(type = "Pentaho")
 public class PentahoReportingProcessServiceImpl implements ReportingProcessService {
 
@@ -143,7 +146,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
   public Response processRequest(
       final String reportName, final MultivaluedMap<String, String> queryParams) {
     final var outputTypeParam = queryParams.getFirst("output-type");
-    final var reportParams = getReportParams(queryParams);
+    final var reportParams = getReportParams(reportName, queryParams);
     final var locale = ApiParameterHelper.extractLocale(queryParams);
     final var language = "en";
 
@@ -324,7 +327,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       // and data scoping
       final var tenant = ThreadLocalContextUtil.getTenant();
       final var tenantConnection = tenant.getConnection();
-      String protocol = toProtocol(this.tenantDataSource);
+      String protocol = resolveProtocol(DataSourceUtils.getDriverClassName(this.tenantDataSource));
       Environment environment = contextVar.getEnvironment();
       String tenantUrl =
           toJdbcUrl(
@@ -372,7 +375,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
   }
 
   @Override
-  public Map<String, String> getReportParams(final MultivaluedMap<String, String> queryParams) {
+  public Map<String, String> getReportParams(String reportName, final MultivaluedMap<String, String> queryParams) {
     final Map<String, String> reportParams = new HashMap<>();
     final var keys = queryParams.keySet();
     String pKey;
@@ -417,10 +420,10 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
     }
   }
 
-  private String getTenantUrl() {
+  private String getTenantUrl() throws SQLException {
     final FineractPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
     final FineractPlatformTenantConnection tenantConnection = tenant.getConnection();
-    String protocol = toProtocol(tenantDataSource);
+    String protocol = resolveProtocol(DataSourceUtils.getDriverClassName(tenantDataSource));    
     // Default properties for Writing
     String schemaServer = tenantConnection.getSchemaServer();
     String schemaPort = tenantConnection.getSchemaServerPort();

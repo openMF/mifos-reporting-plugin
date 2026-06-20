@@ -63,8 +63,7 @@ public class PentahoReportsTest {
                         "output-type",
                         "PDF",
                         "R_loanOfficerId",
-                        "-1"),
-                    false));
+                        "-1")));
     Truth.assertThat(r.contentType()).isEqualTo(MediaType.get("application/pdf"));
   }
 
