@@ -95,7 +95,7 @@ class BirtReportingProcessServiceImplTest {
     params.add("output-type", "PDF");
     params.add("ignoreThis", "value");
 
-    Map<String, String> result = service.getReportParams(params);
+    Map<String, String> result = service.getReportParams("sample",params);
 
     assertNotNull(result);
     assertEquals(3, result.size());
@@ -249,7 +249,7 @@ class BirtReportingProcessServiceImplTest {
     params.add("R_clientId", "");
     params.add("R_officeId", "1");
 
-    Map<String, String> result = service.getReportParams(params);
+    Map<String, String> result = service.getReportParams("sample",params);
 
     assertEquals(1, result.size());
     assertEquals("1", result.get("officeId"));

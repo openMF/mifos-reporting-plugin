@@ -18,6 +18,7 @@ import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
 import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.core.service.database.DatabasePasswordEncryptor;
+import org.apache.fineract.infrastructure.report.util.DataSourceUtils;
 import org.apache.fineract.infrastructure.security.constants.TenantConstants;
 import org.eclipse.birt.report.model.api.DesignElementHandle;
 import org.eclipse.birt.report.model.api.LibraryHandle;
@@ -239,7 +240,7 @@ public class BirtDataSourceConfigurer {
 
   protected static String toProtocol(javax.sql.DataSource dataSource) {
     return org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection
-        .toProtocol(dataSource);
+        .resolveProtocol(DataSourceUtils.getDriverClassName(dataSource));
   }
 
   private static String toJdbcUrl(

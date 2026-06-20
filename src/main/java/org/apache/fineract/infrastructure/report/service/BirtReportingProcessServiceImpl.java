@@ -46,7 +46,7 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
   public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
     String outputType = resolveOutputType(queryParams);
     Locale locale = ApiParameterHelper.extractLocale(queryParams);
-    Map<String, String> reportParams = getReportParams(queryParams);
+    Map<String, String> reportParams = getReportParams(reportName, queryParams);
 
     log.info(
         "Generating BIRT report: {} | format: {} | locale: {}", reportName, outputType, locale);
@@ -122,7 +122,7 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
   }
 
   @Override
-  public Map<String, String> getReportParams(MultivaluedMap<String, String> queryParams) {
+  public Map<String, String> getReportParams(String reportName, MultivaluedMap<String, String> queryParams) {
     Map<String, String> params = new HashMap<>();
     queryParams.keySet().stream()
         .filter(k -> k.startsWith("R_"))
