@@ -27,10 +27,12 @@ import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportRunnable;
 import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
 import org.eclipse.birt.report.model.api.ReportDesignHandle;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
+@Primary
 @ReportService(type = "BIRT")
 @RequiredArgsConstructor
 public class BirtReportingProcessServiceImpl implements ReportingProcessService {

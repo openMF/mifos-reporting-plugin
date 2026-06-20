@@ -16,6 +16,8 @@ import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportEngineFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,6 +32,21 @@ public class BirtEngineConfiguration {
 
   private static final Logger logger = LoggerFactory.getLogger(BirtEngineConfiguration.class);
   private IReportEngine reportEngine;
+  
+  @Bean
+    public static BeanFactoryPostProcessor primaryBeanFactoryPostProcessor() {
+        return beanFactory -> {
+            // Check if the BeanFactory supports bean definition manipulation
+            if (beanFactory instanceof BeanDefinitionRegistry registry) {
+                String beanName = "birtReportingProcessServiceImpl";
+                
+                // If the plugin bean is registered, force it to be primary
+                if (registry.containsBeanDefinition(beanName)) {
+                    registry.getBeanDefinition(beanName).setPrimary(true);
+                }
+            }
+        };
+    }
 
   @PostConstruct
   public void startBirtEngine() {
