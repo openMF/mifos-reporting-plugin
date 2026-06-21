@@ -42,6 +42,8 @@ public class BirtReportExecutionFactory {
    */
   public IReportRunnable createExecutionRunnable(String reportName, Locale locale) {
     try {
+      reportLoader.validateTemplateFreshness(reportName, locale);
+
       IReportRunnable template = reportLoader.loadReport(reportName, locale);
       ReportDesignHandle templateHandle = (ReportDesignHandle) template.getDesignHandle();
 
