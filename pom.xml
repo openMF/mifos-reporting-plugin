@@ -25,7 +25,7 @@
 	<properties>
 		<java.version>21</java.version>
 		<fineract.version>0.0.1436-d297d68</fineract.version>
-		<eclipselink.version>4.0.9</eclipselink.version>
+		<eclipselink.version>5.0.0</eclipselink.version>
 		<birt.version>4.24.0</birt.version>
 		<icu4j.version>78.3</icu4j.version>
                 <csv.emitter.version>1.0.11</csv.emitter.version>
