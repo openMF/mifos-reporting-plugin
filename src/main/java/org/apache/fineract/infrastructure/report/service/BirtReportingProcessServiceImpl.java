@@ -29,6 +29,7 @@ import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
 import org.eclipse.birt.report.model.api.ReportDesignHandle;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -44,7 +45,15 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
   private final Map<String, BirtRenderer> birtRenderers;
   private final BirtPluginProperties birtProperties; // Injected
 
+  /**
+   * Report execution is read-only by nature.
+   *
+   * <p>This transaction boundary prepares the reporting subsystem for future datasource
+   * routing/read replica support in Fineract while also preventing accidental write operations
+   * during report generation.
+   */
   @Override
+  @Transactional(readOnly = true)
   public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
     String outputType = resolveOutputType(queryParams);
     Locale locale = ApiParameterHelper.extractLocale(queryParams);

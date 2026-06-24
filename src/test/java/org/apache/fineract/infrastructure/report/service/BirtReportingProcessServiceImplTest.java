@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
@@ -43,6 +44,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.annotation.Transactional;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("BirtReportingProcessServiceImpl Tests")
@@ -302,6 +304,21 @@ class BirtReportingProcessServiceImplTest {
             () -> service.processRequest("sample", queryParams("PDF")));
 
     assertEquals("error.msg.reporting.error", exception.getGlobalisationMessageCode());
+  }
+
+  @Test
+  @DisplayName("Should execute report processing in read-only transaction")
+  void shouldExecuteInReadOnlyTransaction() throws Exception {
+
+    Method method =
+        BirtReportingProcessServiceImpl.class.getMethod(
+            "processRequest", String.class, MultivaluedMap.class);
+
+    Transactional transactional = method.getAnnotation(Transactional.class);
+
+    assertNotNull(transactional);
+
+    assertTrue(transactional.readOnly());
   }
 
   private BirtRenderer getRendererForType(String outputType) {
