@@ -8,11 +8,13 @@ package org.apache.fineract.infrastructure.report.service;
 
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
+import java.sql.Connection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -28,7 +30,10 @@ import org.eclipse.birt.report.engine.api.IReportRunnable;
 import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
 import org.eclipse.birt.report.model.api.ReportDesignHandle;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Service
@@ -42,7 +47,10 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
   private final BirtDataSourceConfigurer dataSourceConfigurer;
   private final BirtParameterMapper parameterMapper;
   private final Map<String, BirtRenderer> birtRenderers;
-  private final BirtPluginProperties birtProperties; // Injected
+  private final BirtPluginProperties birtProperties;
+  private final DataSource dataSource;
+  private final PlatformTransactionManager
+      transactionManager; // Added for programmatic transactions
 
   @Override
   public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
@@ -53,35 +61,50 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     log.info(
         "Generating BIRT report: {} | format: {} | locale: {}", reportName, outputType, locale);
 
-    IRunAndRenderTask task = null;
-    try {
-      IReportRunnable design = reportExecutionFactory.createExecutionRunnable(reportName, locale);
-      ReportDesignHandle designHandle = (ReportDesignHandle) design.getDesignHandle();
+    // 1. Setup the Read-Only Transaction explicitly to avoid Spring Proxy annotation stripping
+    TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+    transactionTemplate.setReadOnly(true);
 
-      dataSourceConfigurer.configureAll(designHandle);
+    // 2. Execute the entire report lifecycle safely inside the transaction boundary
+    return transactionTemplate.execute(
+        status -> {
+          IRunAndRenderTask task = null;
+          try {
+            IReportRunnable design =
+                reportExecutionFactory.createExecutionRunnable(reportName, locale);
+            ReportDesignHandle designHandle = (ReportDesignHandle) design.getDesignHandle();
 
-      task = reportEngine.createRunAndRenderTask(design);
-      task.setErrorHandlingOption(IEngineTask.CANCEL_ON_ERROR);
+            dataSourceConfigurer.configureAll(designHandle);
 
-      configureLocale(task, locale);
-      parameterMapper.applyParameters(task, reportParams);
+            task = reportEngine.createRunAndRenderTask(design);
+            task.setErrorHandlingOption(IEngineTask.CANCEL_ON_ERROR);
 
-      BirtRenderer renderer = getRenderer(outputType);
-      return renderer.render(task, reportName);
+            // --- FINERACT CONNECTION INJECTION ---
+            Connection springConnection = DataSourceUtils.getConnection(dataSource);
+            task.getAppContext().put("OdaJDBCDriverPassInConnection", springConnection);
+            task.getAppContext().put("OdaJDBCDriverPassInConnectionCloseAfterUse", false);
+            // -------------------------------------
 
-    } catch (Exception e) {
-      log.error("Failed to generate BIRT report: {}", reportName, e);
-      throw new PlatformDataIntegrityException(
-          "error.msg.reporting.error", "Report generation failed: " + e.getMessage(), e);
-    } finally {
-      if (task != null) {
-        try {
-          task.close();
-        } catch (Exception e) {
-          log.warn("Failed to close BIRT report task for report: {}", reportName, e);
-        }
-      }
-    }
+            configureLocale(task, locale);
+            parameterMapper.applyParameters(task, reportParams);
+
+            BirtRenderer renderer = getRenderer(outputType);
+            return renderer.render(task, reportName);
+
+          } catch (Exception e) {
+            log.error("Failed to generate BIRT report: {}", reportName, e);
+            throw new PlatformDataIntegrityException(
+                "error.msg.reporting.error", "Report generation failed: " + e.getMessage(), e);
+          } finally {
+            if (task != null) {
+              try {
+                task.close();
+              } catch (Exception e) {
+                log.warn("Failed to close BIRT report task for report: {}", reportName, e);
+              }
+            }
+          }
+        });
   }
 
   private String resolveOutputType(MultivaluedMap<String, String> queryParams) {
@@ -104,20 +127,14 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     return renderer;
   }
 
-  /** Configures report locale using BirtProperties */
   private void configureLocale(IRunAndRenderTask task, Locale locale) {
-    // Priority 1: Configured default locale in application properties
     if (StringUtils.isNotBlank(birtProperties.getDefaultLocale())) {
       task.setLocale(Locale.forLanguageTag(birtProperties.getDefaultLocale()));
       log.debug("Using configured default locale: {}", birtProperties.getDefaultLocale());
-    }
-    // Priority 2: Locale from request parameter
-    else if (locale != null) {
+    } else if (locale != null) {
       task.setLocale(locale);
       log.debug("Using locale from request: {}", locale);
-    }
-    // Priority 3: System default (fallback)
-    else {
+    } else {
       task.setLocale(Locale.ENGLISH);
       log.debug("Using fallback locale: English");
     }

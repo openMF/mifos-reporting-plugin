@@ -62,21 +62,28 @@ public abstract class BirtIntegrationTestBase {
             .withEnv("TZ", "UTC")
             .withEnv("JAVA_TOOL_OPTIONS", "-Xmx2G")
             .withEnv("FINERACT_SERVER_SSL_ENABLED", "true")
-            .withEnv("FINERACT_SERVER_PORT", "8443");
+            .withEnv("FINERACT_SERVER_PORT", "8443")
+            // 1. Tell the plugin where to look for reports
+            .withEnv("MIFOS_BIRT_REPORTS_PATH", "/app/birt/reports");
 
-    // 1. Safely copy the ENTIRE directory of runtime dependencies gathered by Maven
+    // 2. Safely copy the ENTIRE directory of runtime dependencies gathered by Maven
     FINERACT.withCopyFileToContainer(
         MountableFile.forHostPath("target/test-runtime/libs"), "/app/birt/libs");
 
-    // 2. Copy the plugin jar cleanly into the root of /app/birt to avoid overlapping file vs folder
+    // 3. Copy the plugin jar cleanly into the root of /app/birt to avoid overlapping file vs folder
     // conflicts
-    // 2. Copy the plugin jar cleanly into the root of /app/birt
     FINERACT.withCopyFileToContainer(
         MountableFile.forHostPath(System.getProperty("birt.plugin.jar")),
         "/app/birt/birt-plugin.jar");
 
-    // 3. Emulate Jib's classpath modification scheme to mount dependencies to Jib containers
+    // 4. Mount the actual report design file from your repo into the container
+    FINERACT.withCopyFileToContainer(
+        MountableFile.forHostPath("birt/reports/Active_Loans_Details.rptdesign"),
+        "/app/birt/reports/Active_Loans_Details.rptdesign");
+
+    // 5. Emulate Jib's classpath modification scheme to mount dependencies to Jib containers
     // cleanly
+    // 5. Emulate Jib's classpath modification scheme to mount dependencies cleanly
     FINERACT.withCreateContainerCmdModifier(
         cmd -> {
           cmd.withEntrypoint(
@@ -85,7 +92,9 @@ public abstract class BirtIntegrationTestBase {
               "CLASSPATH=$(cat /app/jib-classpath-file) && "
                   + "exec java $JAVA_TOOL_OPTIONS "
                   + "-Duser.home=/tmp -Dfile.encoding=UTF-8 -Duser.timezone=UTC -Djava.security.egd=file:/dev/./urandom "
-                  + "-cp /app/birt/birt-plugin.jar:/app/birt/libs/*:$CLASSPATH "
+                  // FIX: Fineract's $CLASSPATH must come before BIRT's /libs/* to prevent library
+                  // downgrades!
+                  + "-cp /app/birt/birt-plugin.jar:$CLASSPATH:/app/birt/libs/* "
                   + "org.apache.fineract.ServerApplication");
           cmd.withCmd();
         });

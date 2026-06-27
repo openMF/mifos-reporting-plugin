@@ -17,14 +17,17 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
+import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
+import javax.sql.DataSource;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
@@ -33,6 +36,7 @@ import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportRunnable;
 import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
 import org.eclipse.birt.report.model.api.ReportDesignHandle;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,8 +45,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("BirtReportingProcessServiceImpl Tests")
@@ -58,8 +66,15 @@ class BirtReportingProcessServiceImplTest {
   @Mock private BirtRenderer xlsxRenderer;
   @Mock private BirtRenderer csvRenderer;
   @Mock private BirtPluginProperties birtProperties;
+  @Mock private DataSource dataSource;
+
+  @Mock
+  private PlatformTransactionManager transactionManager; // Added for programmatic transactions
 
   @InjectMocks private BirtReportingProcessServiceImpl service;
+
+  private MockedStatic<DataSourceUtils> mockedDataSourceUtils;
+  private Connection mockConnection;
 
   @BeforeEach
   void setUp() {
@@ -73,8 +88,24 @@ class BirtReportingProcessServiceImplTest {
             "CSV", csvRenderer);
     ReflectionTestUtils.setField(service, "birtRenderers", renderers);
 
-    // Use lenient() to avoid UnnecessaryStubbingException
     lenient().when(birtProperties.getDefaultLocale()).thenReturn("en");
+
+    // Mock the TransactionManager to smoothly execute the TransactionTemplate lambda
+    lenient()
+        .when(transactionManager.getTransaction(any()))
+        .thenReturn(new SimpleTransactionStatus());
+
+    // Safely mock the static Spring DataSourceUtils call
+    mockConnection = mock(Connection.class);
+    mockedDataSourceUtils = mockStatic(DataSourceUtils.class);
+    mockedDataSourceUtils
+        .when(() -> DataSourceUtils.getConnection(any(DataSource.class)))
+        .thenReturn(mockConnection);
+  }
+
+  @AfterEach
+  void tearDown() {
+    mockedDataSourceUtils.close();
   }
 
   private MultivaluedMap<String, String> queryParams(String outputType) {
@@ -128,6 +159,9 @@ class BirtReportingProcessServiceImplTest {
     IReportRunnable design = mock(IReportRunnable.class);
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
     IRunAndRenderTask task = mock(IRunAndRenderTask.class);
+
+    java.util.HashMap<String, Object> appContext = new java.util.HashMap<>();
+    when(task.getAppContext()).thenReturn(appContext);
 
     when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
     when(design.getDesignHandle()).thenReturn(designHandle);
@@ -184,6 +218,9 @@ class BirtReportingProcessServiceImplTest {
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
     IRunAndRenderTask task = mock(IRunAndRenderTask.class);
 
+    java.util.HashMap<String, Object> appContext = new java.util.HashMap<>();
+    when(task.getAppContext()).thenReturn(appContext);
+
     when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
     when(design.getDesignHandle()).thenReturn(designHandle);
     when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
@@ -204,6 +241,9 @@ class BirtReportingProcessServiceImplTest {
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
     IRunAndRenderTask task = mock(IRunAndRenderTask.class);
 
+    java.util.HashMap<String, Object> appContext = new java.util.HashMap<>();
+    when(task.getAppContext()).thenReturn(appContext);
+
     when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
     when(design.getDesignHandle()).thenReturn(designHandle);
     when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
@@ -222,10 +262,11 @@ class BirtReportingProcessServiceImplTest {
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
     IRunAndRenderTask task = mock(IRunAndRenderTask.class);
 
+    java.util.HashMap<String, Object> appContext = new java.util.HashMap<>();
+    when(task.getAppContext()).thenReturn(appContext);
+
     when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
-
     when(design.getDesignHandle()).thenReturn(designHandle);
-
     when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
 
     when(htmlRenderer.render(any(), anyString()))
@@ -236,7 +277,6 @@ class BirtReportingProcessServiceImplTest {
     Response response = service.processRequest("sample", params);
 
     assertEquals(200, response.getStatus());
-
     verify(htmlRenderer).render(eq(task), eq("sample"));
   }
 
@@ -245,7 +285,6 @@ class BirtReportingProcessServiceImplTest {
   void shouldIgnoreBlankReportParameters() {
 
     MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
-
     params.add("R_clientId", "");
     params.add("R_officeId", "1");
 
@@ -263,10 +302,11 @@ class BirtReportingProcessServiceImplTest {
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
     IRunAndRenderTask task = mock(IRunAndRenderTask.class);
 
+    java.util.HashMap<String, Object> appContext = new java.util.HashMap<>();
+    when(task.getAppContext()).thenReturn(appContext);
+
     when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
-
     when(design.getDesignHandle()).thenReturn(designHandle);
-
     when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
 
     when(pdfRenderer.render(any(), anyString()))
@@ -287,7 +327,6 @@ class BirtReportingProcessServiceImplTest {
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
 
     when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
-
     when(design.getDesignHandle()).thenReturn(designHandle);
 
     doThrow(
