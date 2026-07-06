@@ -49,8 +49,9 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
   private final Map<String, BirtRenderer> birtRenderers;
   private final BirtPluginProperties birtProperties;
   private final DataSource dataSource;
-  private final PlatformTransactionManager
-      transactionManager; // Added for programmatic transactions
+  private final PlatformTransactionManager transactionManager;
+  private final BirtSqlDialectInterpolator
+      sqlDialectInterpolator; // Added for Runtime Interpolation Layer
 
   @Override
   public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
@@ -61,11 +62,9 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     log.info(
         "Generating BIRT report: {} | format: {} | locale: {}", reportName, outputType, locale);
 
-    // 1. Setup the Read-Only Transaction explicitly to avoid Spring Proxy annotation stripping
     TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
     transactionTemplate.setReadOnly(true);
 
-    // 2. Execute the entire report lifecycle safely inside the transaction boundary
     return transactionTemplate.execute(
         status -> {
           IRunAndRenderTask task = null;
@@ -73,6 +72,10 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
             IReportRunnable design =
                 reportExecutionFactory.createExecutionRunnable(reportName, locale);
             ReportDesignHandle designHandle = (ReportDesignHandle) design.getDesignHandle();
+
+            // --- RUNTIME SQL INTERPOLATION & DIALECT TRANSLATION LAYER ---
+            sqlDialectInterpolator.interpolate(designHandle);
+            // -------------------------------------------------------------
 
             dataSourceConfigurer.configureAll(designHandle);
 
