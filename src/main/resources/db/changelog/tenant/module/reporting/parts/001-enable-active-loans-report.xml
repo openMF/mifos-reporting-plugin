@@ -1,41 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-
  Copyright since 2026 Mifos Initiative
  
  <p>This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy
  of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 -->
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    
     <!-- Give minimal grants for Savings Account to the Self Service Role-->
     <changeSet author="fineract" id="reporting-001-1">        
         <preConditions onFail="MARK_RAN">            
             <tableExists tableName="stretchy_report"/>
             <tableExists tableName="stretchy_report_parameter"/>
-            <!-- Precondition: Only run if 'Active_Loans_Details' does NOT exist in the table -->
-            <!-- If it DOES exist (count > 0), the check fails, and onFail="MARK_RAN" skips it safely -->
             <sqlCheck expectedResult="0">
                 SELECT COUNT(*) FROM stretchy_report WHERE report_name = 'Active_Loans_Details'
             </sqlCheck>
         </preConditions>
-        <!-- 1. Insert the Report (ID auto-generates) -->
+        
         <insert tableName="stretchy_report">
             <column name="report_name" value="Active_Loans_Details"/>
             <column name="report_type" value="BIRT"/>
-            <!-- report_subtype is omitted, defaults to NULL -->
             <column name="report_category" value="Loan"/>
-            <!-- report_sql is omitted, defaults to NULL -->
             <column name="description" value="Active Loans Detailed Report"/>
             <column name="core_report" valueBoolean="false"/>
             <column name="use_report" valueBoolean="true"/>
             <column name="self_service_user_report" valueBoolean="false"/>
         </insert>
 
-        <!-- 2. Insert Parameters using an ANSI SQL Subquery to fetch the auto-generated ID -->
-        <!-- This works identically on MySQL/MariaDB and PostgreSQL -->
         <sql>
             INSERT INTO stretchy_report_parameter (report_id, parameter_id, report_parameter_name) VALUES
             ((SELECT id FROM stretchy_report WHERE report_name = 'Active_Loans_Details'), 5,  'branch'),
@@ -46,4 +39,31 @@
             ((SELECT id FROM stretchy_report WHERE report_name = 'Active_Loans_Details'), 10, 'currencyId');
         </sql>
     </changeSet>
+
+    <!-- E2E Integration Test Dummy Report (ONLY RUNS IN TESTS) -->
+    <changeSet author="fineract" id="reporting-002-integration-test" context="test">
+        <insert tableName="stretchy_report">
+            <column name="report_name" value="Integration_Test_Report"/>
+            <column name="report_type" value="BIRT"/>
+            <column name="report_category" value="Loan"/>
+            <column name="description" value="Parameterless report for E2E testing"/>
+            <column name="core_report" valueBoolean="false"/>
+            <column name="use_report" valueBoolean="true"/>
+            <column name="self_service_user_report" valueBoolean="false"/>
+        </insert>
+        
+        <insert tableName="m_permission">
+            <column name="grouping" value="report"/>
+            <column name="code" value="READ_Integration_Test_Report"/>
+            <column name="entity_name" value="REPORT"/>
+            <column name="action_name" value="READ"/>
+            <column name="can_maker_checker" valueBoolean="false"/>
+        </insert>
+
+        <sql>
+            INSERT INTO m_role_permission (role_id, permission_id)
+            VALUES (1, (SELECT id FROM m_permission WHERE code = 'READ_Integration_Test_Report'));
+        </sql>
+    </changeSet>
+
 </databaseChangeLog>

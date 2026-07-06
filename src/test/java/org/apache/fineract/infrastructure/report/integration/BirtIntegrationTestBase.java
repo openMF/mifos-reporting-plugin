@@ -81,6 +81,11 @@ public abstract class BirtIntegrationTestBase {
         MountableFile.forHostPath("birt/reports/Active_Loans_Details.rptdesign"),
         "/app/birt/reports/Active_Loans_Details.rptdesign");
 
+    // Mount the same report design file under a secondary alias for the E2E integration test
+    FINERACT.withCopyFileToContainer(
+        MountableFile.forHostPath("birt/reports/Active_Loans_Details.rptdesign"),
+        "/app/birt/reports/Integration_Test_Report.rptdesign");
+
     // 5. Emulate Jib's classpath modification scheme to mount dependencies to Jib containers
     // cleanly
     // 5. Emulate Jib's classpath modification scheme to mount dependencies cleanly

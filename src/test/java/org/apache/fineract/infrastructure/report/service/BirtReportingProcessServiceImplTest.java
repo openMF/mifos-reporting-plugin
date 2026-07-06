@@ -71,6 +71,7 @@ class BirtReportingProcessServiceImplTest {
   @Mock
   private PlatformTransactionManager transactionManager; // Added for programmatic transactions
 
+  @Mock private BirtSqlDialectInterpolator sqlDialectInterpolator;
   @InjectMocks private BirtReportingProcessServiceImpl service;
 
   private MockedStatic<DataSourceUtils> mockedDataSourceUtils;
@@ -229,6 +230,7 @@ class BirtReportingProcessServiceImplTest {
     service.processRequest("sample", queryParams("PDF"));
 
     verify(reportExecutionFactory).createExecutionRunnable(eq("sample"), any());
+    verify(sqlDialectInterpolator).interpolate(designHandle);
     verify(dataSourceConfigurer).configureAll(designHandle);
     verify(parameterMapper).applyParameters(eq(task), any());
     verify(pdfRenderer).render(eq(task), eq("sample"));
