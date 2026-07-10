@@ -7,41 +7,32 @@
 package org.apache.fineract.infrastructure.report.renderer;
 
 import jakarta.ws.rs.core.Response;
-import java.io.ByteArrayOutputStream;
-import lombok.RequiredArgsConstructor;
+import jakarta.ws.rs.core.StreamingOutput;
+import java.io.OutputStream;
 import org.apache.fineract.infrastructure.report.util.FilenameUtils;
 import org.eclipse.birt.report.engine.api.EXCELRenderOption;
-import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
+import org.eclipse.birt.report.engine.api.IRenderOption;
 import org.springframework.stereotype.Component;
 
+/** Renderer for exporting BIRT outputs to legacy Excel (XLS) format. */
 @Component("XLS")
-@RequiredArgsConstructor
-public class XlsExcelBirtRenderer implements BirtRenderer {
+public class XlsExcelBirtRenderer extends AbstractBirtRenderer {
 
   @Override
-  public Response render(IRunAndRenderTask task, String reportName) throws Exception {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
+  protected IRenderOption createRenderOption(OutputStream output, String reportName) {
     EXCELRenderOption options = new EXCELRenderOption();
-    String outputFormat = "xls";
-    options.setOutputFormat(outputFormat);
-    options.setOutputStream(baos);
+    options.setOutputFormat("xls");
+    options.setOutputStream(output);
+    return options;
+  }
 
-    task.setRenderOption(options);
-    task.run();
-
-    String mimeType = "application/vnd.ms-excel";
-    String extension = "xls";
-
-    return Response.ok(baos.toByteArray())
-        .type(mimeType)
+  @Override
+  protected Response buildResponse(StreamingOutput stream, String reportName) {
+    return Response.ok(stream)
+        .type("application/vnd.ms-excel")
         .header(
             "Content-Disposition",
-            "attachment; filename=\""
-                + FilenameUtils.sanitizeFilename(reportName)
-                + "."
-                + extension
-                + "\"")
+            "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".xls\"")
         .build();
   }
 }

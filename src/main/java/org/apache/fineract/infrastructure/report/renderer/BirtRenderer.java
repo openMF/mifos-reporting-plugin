@@ -7,8 +7,9 @@
 package org.apache.fineract.infrastructure.report.renderer;
 
 import jakarta.ws.rs.core.Response;
-import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
+import org.eclipse.birt.report.engine.api.IReportEngine;
 
 public interface BirtRenderer {
-  Response render(IRunAndRenderTask task, String reportName) throws Exception;
+  Response render(IReportEngine reportEngine, String documentPath, String reportName)
+      throws Exception;
 }

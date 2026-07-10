@@ -14,7 +14,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -25,6 +24,7 @@ import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import java.sql.Connection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -34,7 +34,7 @@ import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
 import org.apache.fineract.infrastructure.report.renderer.BirtRenderer;
 import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportRunnable;
-import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
+import org.eclipse.birt.report.engine.api.IRunTask;
 import org.eclipse.birt.report.model.api.ReportDesignHandle;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,7 +58,7 @@ class BirtReportingProcessServiceImplTest {
 
   @Mock private IReportEngine reportEngine;
   @Mock private BirtReportExecutionFactory reportExecutionFactory;
-  @Mock private BirtDataSourceConfigurer dataSourceConfigurer;
+  @Mock private BirtContextInjector contextInjector;
   @Mock private BirtParameterMapper parameterMapper;
   @Mock private BirtRenderer pdfRenderer;
   @Mock private BirtRenderer htmlRenderer;
@@ -68,8 +68,7 @@ class BirtReportingProcessServiceImplTest {
   @Mock private BirtPluginProperties birtProperties;
   @Mock private DataSource dataSource;
 
-  @Mock
-  private PlatformTransactionManager transactionManager; // Added for programmatic transactions
+  @Mock private PlatformTransactionManager transactionManager;
 
   @Mock private BirtSqlDialectInterpolator sqlDialectInterpolator;
   @InjectMocks private BirtReportingProcessServiceImpl service;
@@ -79,7 +78,6 @@ class BirtReportingProcessServiceImplTest {
 
   @BeforeEach
   void setUp() {
-    // Simulate Spring bean name-based injection of renderers
     Map<String, BirtRenderer> renderers =
         Map.of(
             "PDF", pdfRenderer,
@@ -91,12 +89,10 @@ class BirtReportingProcessServiceImplTest {
 
     lenient().when(birtProperties.getDefaultLocale()).thenReturn("en");
 
-    // Mock the TransactionManager to smoothly execute the TransactionTemplate lambda
     lenient()
         .when(transactionManager.getTransaction(any()))
         .thenReturn(new SimpleTransactionStatus());
 
-    // Safely mock the static Spring DataSourceUtils call
     mockConnection = mock(Connection.class);
     mockedDataSourceUtils = mockStatic(DataSourceUtils.class);
     mockedDataSourceUtils
@@ -155,24 +151,23 @@ class BirtReportingProcessServiceImplTest {
     "XLSX, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "CSV, text/csv"
   })
-  @DisplayName("Should support all major export formats")
+  @DisplayName("Should support all major export formats via streaming")
   void shouldSupportAllExportFormats(String outputType, String expectedMimeType) throws Exception {
     IReportRunnable design = mock(IReportRunnable.class);
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
-    IRunAndRenderTask task = mock(IRunAndRenderTask.class);
+    IRunTask task = mock(IRunTask.class);
 
-    java.util.HashMap<String, Object> appContext = new java.util.HashMap<>();
+    HashMap<String, Object> appContext = new HashMap<>();
     when(task.getAppContext()).thenReturn(appContext);
 
     when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
     when(design.getDesignHandle()).thenReturn(designHandle);
-    when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
+    when(reportEngine.createRunTask(design)).thenReturn(task);
 
     BirtRenderer renderer = getRendererForType(outputType);
-    when(renderer.render(any(), anyString()))
+    when(renderer.render(eq(reportEngine), anyString(), anyString()))
         .thenReturn(Response.ok().type(expectedMimeType).build());
 
-    doNothing().when(dataSourceConfigurer).configureAll(any());
     doNothing().when(parameterMapper).applyParameters(any(), any());
 
     Response response = service.processRequest("sample", queryParams(outputType));
@@ -213,43 +208,56 @@ class BirtReportingProcessServiceImplTest {
   }
 
   @Test
-  @DisplayName("Should call all collaborators in correct order")
+  @DisplayName("Should call all collaborators in correct order for two-phase execution")
   void shouldCallCollaboratorsInCorrectOrder() throws Exception {
     IReportRunnable design = mock(IReportRunnable.class);
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
-    IRunAndRenderTask task = mock(IRunAndRenderTask.class);
+    IRunTask task = mock(IRunTask.class);
 
-    java.util.HashMap<String, Object> appContext = new java.util.HashMap<>();
+    HashMap<String, Object> appContext = new HashMap<>();
     when(task.getAppContext()).thenReturn(appContext);
 
     when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
     when(design.getDesignHandle()).thenReturn(designHandle);
-    when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
-    when(pdfRenderer.render(any(), anyString())).thenReturn(Response.ok().build());
+    when(reportEngine.createRunTask(design)).thenReturn(task);
+    when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+        .thenReturn(Response.ok().build());
 
     service.processRequest("sample", queryParams("PDF"));
 
-    verify(reportExecutionFactory).createExecutionRunnable(eq("sample"), any());
-    verify(sqlDialectInterpolator).interpolate(designHandle);
-    verify(dataSourceConfigurer).configureAll(designHandle);
-    verify(parameterMapper).applyParameters(eq(task), any());
-    verify(pdfRenderer).render(eq(task), eq("sample"));
+    // FIXED: Ensured absolutely every mock being verified is passed into this list
+    org.mockito.InOrder inOrder =
+        org.mockito.Mockito.inOrder(
+            reportExecutionFactory,
+            sqlDialectInterpolator,
+            parameterMapper,
+            contextInjector,
+            task,
+            pdfRenderer);
+
+    inOrder.verify(reportExecutionFactory).createExecutionRunnable(eq("sample"), any());
+    inOrder.verify(sqlDialectInterpolator).interpolate(designHandle);
+    inOrder.verify(parameterMapper).applyParameters(eq(task), any());
+    inOrder.verify(contextInjector).injectContextParameters(task);
+    inOrder.verify(task).run(anyString());
+    inOrder.verify(pdfRenderer).render(eq(reportEngine), anyString(), eq("sample"));
   }
 
   @Test
-  @DisplayName("Should close BIRT task after rendering")
+  @DisplayName("Should close BIRT run task after database execution completes")
   void shouldCloseTaskAfterRendering() throws Exception {
     IReportRunnable design = mock(IReportRunnable.class);
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
-    IRunAndRenderTask task = mock(IRunAndRenderTask.class);
+    IRunTask task = mock(IRunTask.class);
 
-    java.util.HashMap<String, Object> appContext = new java.util.HashMap<>();
+    HashMap<String, Object> appContext = new HashMap<>();
     when(task.getAppContext()).thenReturn(appContext);
 
     when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
     when(design.getDesignHandle()).thenReturn(designHandle);
-    when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
-    when(pdfRenderer.render(any(), anyString())).thenReturn(Response.ok().build());
+    when(reportEngine.createRunTask(design)).thenReturn(task);
+    when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+        .thenReturn(Response.ok().build());
 
     service.processRequest("sample", queryParams("PDF"));
 
@@ -259,19 +267,18 @@ class BirtReportingProcessServiceImplTest {
   @Test
   @DisplayName("Should default to HTML when output type is missing")
   void shouldDefaultToHtmlWhenOutputTypeIsMissing() throws Exception {
-
     IReportRunnable design = mock(IReportRunnable.class);
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
-    IRunAndRenderTask task = mock(IRunAndRenderTask.class);
+    IRunTask task = mock(IRunTask.class);
 
-    java.util.HashMap<String, Object> appContext = new java.util.HashMap<>();
+    HashMap<String, Object> appContext = new HashMap<>();
     when(task.getAppContext()).thenReturn(appContext);
 
     when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
     when(design.getDesignHandle()).thenReturn(designHandle);
-    when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
+    when(reportEngine.createRunTask(design)).thenReturn(task);
 
-    when(htmlRenderer.render(any(), anyString()))
+    when(htmlRenderer.render(eq(reportEngine), anyString(), anyString()))
         .thenReturn(Response.ok().type("text/html").build());
 
     MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
@@ -279,13 +286,12 @@ class BirtReportingProcessServiceImplTest {
     Response response = service.processRequest("sample", params);
 
     assertEquals(200, response.getStatus());
-    verify(htmlRenderer).render(eq(task), eq("sample"));
+    verify(htmlRenderer).render(eq(reportEngine), anyString(), eq("sample"));
   }
 
   @Test
   @DisplayName("Should ignore blank report parameters")
   void shouldIgnoreBlankReportParameters() {
-
     MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
     params.add("R_clientId", "");
     params.add("R_officeId", "1");
@@ -297,52 +303,27 @@ class BirtReportingProcessServiceImplTest {
   }
 
   @Test
-  @DisplayName("Should close task when renderer throws exception")
+  @DisplayName("Should close run task when rendering stream setup throws exception")
   void shouldCloseTaskWhenRendererThrowsException() throws Exception {
-
     IReportRunnable design = mock(IReportRunnable.class);
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
-    IRunAndRenderTask task = mock(IRunAndRenderTask.class);
+    IRunTask task = mock(IRunTask.class);
 
-    java.util.HashMap<String, Object> appContext = new java.util.HashMap<>();
+    HashMap<String, Object> appContext = new HashMap<>();
     when(task.getAppContext()).thenReturn(appContext);
 
     when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
     when(design.getDesignHandle()).thenReturn(designHandle);
-    when(reportEngine.createRunAndRenderTask(design)).thenReturn(task);
+    when(reportEngine.createRunTask(design)).thenReturn(task);
 
-    when(pdfRenderer.render(any(), anyString()))
-        .thenThrow(new RuntimeException("Renderer failure"));
+    when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+        .thenThrow(new RuntimeException("Renderer stream setup failure"));
 
     assertThrows(
         PlatformDataIntegrityException.class,
         () -> service.processRequest("sample", queryParams("PDF")));
 
     verify(task).close();
-  }
-
-  @Test
-  @DisplayName("Should propagate datasource configuration failures")
-  void shouldPropagateDatasourceConfigurationFailures() {
-
-    IReportRunnable design = mock(IReportRunnable.class);
-    ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
-
-    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
-    when(design.getDesignHandle()).thenReturn(designHandle);
-
-    doThrow(
-            new PlatformDataIntegrityException(
-                "error.msg.datasource", "Datasource configuration failed"))
-        .when(dataSourceConfigurer)
-        .configureAll(designHandle);
-
-    PlatformDataIntegrityException exception =
-        assertThrows(
-            PlatformDataIntegrityException.class,
-            () -> service.processRequest("sample", queryParams("PDF")));
-
-    assertEquals("error.msg.reporting.error", exception.getGlobalisationMessageCode());
   }
 
   private BirtRenderer getRendererForType(String outputType) {

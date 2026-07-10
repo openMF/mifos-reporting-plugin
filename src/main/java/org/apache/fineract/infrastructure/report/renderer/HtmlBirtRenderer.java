@@ -7,29 +7,27 @@
 package org.apache.fineract.infrastructure.report.renderer;
 
 import jakarta.ws.rs.core.Response;
-import java.io.ByteArrayOutputStream;
-import lombok.RequiredArgsConstructor;
+import jakarta.ws.rs.core.StreamingOutput;
+import java.io.OutputStream;
 import org.eclipse.birt.report.engine.api.HTMLRenderOption;
 import org.eclipse.birt.report.engine.api.IRenderOption;
-import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
 import org.springframework.stereotype.Component;
 
+/** Renderer for exporting BIRT outputs to HTML format. */
 @Component("HTML")
-@RequiredArgsConstructor
-public class HtmlBirtRenderer implements BirtRenderer {
+public class HtmlBirtRenderer extends AbstractBirtRenderer {
 
   @Override
-  public Response render(IRunAndRenderTask task, String reportName) throws Exception {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
+  protected IRenderOption createRenderOption(OutputStream output, String reportName) {
     HTMLRenderOption options = new HTMLRenderOption();
     options.setOutputFormat(IRenderOption.OUTPUT_FORMAT_HTML);
     options.setEmbeddable(true);
-    options.setOutputStream(baos);
+    options.setOutputStream(output);
+    return options;
+  }
 
-    task.setRenderOption(options);
-    task.run();
-
-    return Response.ok(baos.toByteArray()).type("text/html").build();
+  @Override
+  protected Response buildResponse(StreamingOutput stream, String reportName) {
+    return Response.ok(stream).type("text/html").build();
   }
 }

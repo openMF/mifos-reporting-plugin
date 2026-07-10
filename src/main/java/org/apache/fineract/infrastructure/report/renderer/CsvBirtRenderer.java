@@ -7,29 +7,28 @@
 package org.apache.fineract.infrastructure.report.renderer;
 
 import jakarta.ws.rs.core.Response;
-import java.io.ByteArrayOutputStream;
-import lombok.RequiredArgsConstructor;
+import jakarta.ws.rs.core.StreamingOutput;
+import java.io.OutputStream;
 import org.apache.fineract.infrastructure.report.util.FilenameUtils;
-import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
+import org.eclipse.birt.report.engine.api.IRenderOption;
 import org.eclipse.birt.report.engine.api.RenderOption;
 import org.springframework.stereotype.Component;
 
+/** Renderer for exporting BIRT outputs to CSV format. */
 @Component("CSV")
-@RequiredArgsConstructor
-public class CsvBirtRenderer implements BirtRenderer {
+public class CsvBirtRenderer extends AbstractBirtRenderer {
 
   @Override
-  public Response render(IRunAndRenderTask task, String reportName) throws Exception {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
+  protected IRenderOption createRenderOption(OutputStream output, String reportName) {
     RenderOption options = new RenderOption();
     options.setOutputFormat("csv");
-    options.setOutputStream(baos);
+    options.setOutputStream(output);
+    return options;
+  }
 
-    task.setRenderOption(options);
-    task.run();
-
-    return Response.ok(baos.toByteArray())
+  @Override
+  protected Response buildResponse(StreamingOutput stream, String reportName) {
+    return Response.ok(stream)
         .type("text/csv")
         .header(
             "Content-Disposition",

@@ -7,43 +7,32 @@
 package org.apache.fineract.infrastructure.report.renderer;
 
 import jakarta.ws.rs.core.Response;
-import java.io.ByteArrayOutputStream;
-import lombok.RequiredArgsConstructor;
+import jakarta.ws.rs.core.StreamingOutput;
+import java.io.OutputStream;
 import org.apache.fineract.infrastructure.report.util.FilenameUtils;
 import org.eclipse.birt.report.engine.api.EXCELRenderOption;
-import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
+import org.eclipse.birt.report.engine.api.IRenderOption;
 import org.springframework.stereotype.Component;
 
+/** Renderer for exporting BIRT outputs to modern Excel (XLSX) format. */
 @Component("XLSX")
-@RequiredArgsConstructor
-public class XlsxExcelBirtRenderer implements BirtRenderer {
+public class XlsxExcelBirtRenderer extends AbstractBirtRenderer {
 
   @Override
-  public Response render(IRunAndRenderTask task, String reportName) throws Exception {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
+  protected IRenderOption createRenderOption(OutputStream output, String reportName) {
     EXCELRenderOption options = new EXCELRenderOption();
-    String outputFormat = "xlsx";
+    options.setOutputFormat("xlsx");
+    options.setOutputStream(output);
+    return options;
+  }
 
-    options.setOutputFormat(outputFormat);
-    options.setOutputStream(baos);
-
-    task.setRenderOption(options);
-    task.run();
-
-    String mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-
-    String extension = "xlsx";
-
-    return Response.ok(baos.toByteArray())
-        .type(mimeType)
+  @Override
+  protected Response buildResponse(StreamingOutput stream, String reportName) {
+    return Response.ok(stream)
+        .type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         .header(
             "Content-Disposition",
-            "attachment; filename=\""
-                + FilenameUtils.sanitizeFilename(reportName)
-                + "."
-                + extension
-                + "\"")
+            "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".xlsx\"")
         .build();
   }
 }
