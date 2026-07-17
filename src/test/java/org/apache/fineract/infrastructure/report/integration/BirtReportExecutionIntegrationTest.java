@@ -11,15 +11,22 @@ import static io.restassured.RestAssured.given;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.specification.RequestSpecification;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
-@DisplayName("BIRT Report E2E Execution Tests")
+@DisplayName("BIRT Report E2E Execution & Streaming Tests")
 public class BirtReportExecutionIntegrationTest extends BirtIntegrationTestBase {
 
-  @Test
-  @DisplayName(
-      "Should successfully generate Active Loans Details PDF report via Connection Injection")
-  void shouldGeneratePdfReportSuccessfully() {
+  @ParameterizedTest
+  @CsvSource({
+    "PDF, application/pdf",
+    "HTML, text/html",
+    "CSV, text/csv",
+    "XLS, application/vnd.ms-excel",
+    "XLSX, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  })
+  @DisplayName("Should successfully stream Active Loans Details report in all formats")
+  void shouldStreamReportInAllFormatsSuccessfully(String outputType, String expectedContentType) {
 
     // Testcontainers maps Fineract's internal 8443 port to a random available host port
     String fineractBaseUrl = "https://" + FINERACT.getHost() + ":" + FINERACT.getMappedPort(8443);
@@ -35,7 +42,7 @@ public class BirtReportExecutionIntegrationTest extends BirtIntegrationTestBase 
         .header("Fineract-Platform-TenantId", "default")
         .header("Authorization", "Basic bWlmb3M6cGFzc3dvcmQ=") // Translates to mifos:password
         .queryParam("tenantIdentifier", "default")
-        .queryParam("output-type", "PDF")
+        .queryParam("output-type", outputType)
         .queryParam("locale", "en")
         .queryParam("dateFormat", "dd MMMM yyyy")
         // Mapping the exact parameters registered in 001-enable-active-loans-report.xml
@@ -51,6 +58,6 @@ public class BirtReportExecutionIntegrationTest extends BirtIntegrationTestBase 
         .get("/fineract-provider/api/v1/runreports/Active_Loans_Details")
         .then()
         .statusCode(200)
-        .contentType("application/pdf");
+        .contentType(expectedContentType);
   }
 }

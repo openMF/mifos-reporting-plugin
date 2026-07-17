@@ -6,8 +6,9 @@
  */
 package org.apache.fineract.infrastructure.report.service;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.sql.Date;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -15,28 +16,33 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
-import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
-import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.eclipse.birt.report.engine.api.IGetParameterDefinitionTask;
 import org.eclipse.birt.report.engine.api.IParameterDefn;
 import org.eclipse.birt.report.engine.api.IReportEngine;
-import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
+import org.eclipse.birt.report.engine.api.IRunTask;
 import org.springframework.stereotype.Component;
 
-/** Handles parameter mapping and authorization context injection for BIRT reports. */
+/** Handles parameter mapping for BIRT reports. */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class BirtParameterMapper {
 
-  private final PlatformSecurityContext securityContext;
   private final ReportErrorHandler reportErrorHandler;
   private final IReportEngine reportEngine;
 
-  // Reduced down strictly to row-level and contextual security scoping params
+  // Ignored here because they are injected separately by BirtContextInjector
   private static final Set<String> SERVER_MANAGED_PARAMETERS = Set.of("userhierarchy", "userid");
 
-  public void applyParameters(IRunAndRenderTask task, Map<String, String> reportParams) {
+  /**
+   * Applies report parameters to the BIRT run task. Skips server-managed parameters (like userid)
+   * and maps user-provided parameters to their strictly typed BIRT equivalents.
+   *
+   * @param task The BIRT run task to configure.
+   * @param reportParams The map of raw string parameters from the API request.
+   * @throws PlatformDataIntegrityException if a required parameter is missing or invalid.
+   */
+  public void applyParameters(IRunTask task, Map<String, String> reportParams) {
     if (task == null) {
       throw reportErrorHandler.reportError("error.msg.reporting.error", "Task cannot be null");
     }
@@ -72,19 +78,13 @@ public class BirtParameterMapper {
           "error.msg.reporting.error", "Failed to process report parameters", e);
     } finally {
       if (paramTask != null) {
-        try {
-          paramTask.close();
-        } catch (Exception e) {
-          log.warn("Error closing IGetParameterDefinitionTask", e);
-        }
+        closeQuietly(paramTask::close);
       }
     }
-
-    injectContextParameters(task);
   }
 
   private void setTypedParameter(
-      IRunAndRenderTask task, IParameterDefn paramDef, String name, String value) {
+      IRunTask task, IParameterDefn paramDef, String name, String value) {
     try {
       switch (paramDef.getDataType()) {
         case IParameterDefn.TYPE_INTEGER:
@@ -96,8 +96,7 @@ public class BirtParameterMapper {
           break;
         case IParameterDefn.TYPE_DATE:
         case IParameterDefn.TYPE_DATE_TIME:
-          Date date = parseDate(value);
-          task.setParameterValue(name, new java.sql.Date(date.getTime()));
+          task.setParameterValue(name, parseDate(value));
           break;
         case IParameterDefn.TYPE_BOOLEAN:
           task.setParameterValue(name, Boolean.parseBoolean(value));
@@ -116,32 +115,31 @@ public class BirtParameterMapper {
     }
   }
 
+  // --- PRIVATE HELPER METHODS BELOW ---
+
   private Date parseDate(String value) {
     try {
-      SimpleDateFormat sdf = new SimpleDateFormat("dd MMMM yyyy", Locale.ENGLISH);
-      return sdf.parse(value);
+      DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.ENGLISH);
+      LocalDate localDate = LocalDate.parse(value, formatter);
+      return Date.valueOf(localDate);
     } catch (Exception e) {
       throw new PlatformDataIntegrityException(
           "error.msg.reporting.invalid.date", "Invalid date format. Expected: 'dd MMMM yyyy'", e);
     }
   }
 
-  private void injectContextParameters(IRunAndRenderTask task) {
+  @FunctionalInterface
+  private interface BirtResource {
+    void close() throws Exception;
+  }
+
+  private void closeQuietly(BirtResource resource) {
     try {
-      var currentUser = securityContext.authenticatedUser();
-      var tenant = ThreadLocalContextUtil.getTenant();
-
-      // Maintain only critical contextual row-level row scoping markers
-      task.setParameterValue("userhierarchy", currentUser.getOffice().getHierarchy());
-      task.setParameterValue("userid", currentUser.getId());
-
-      log.debug(
-          "Security scope context parameters injected successfully for tenant: {}",
-          tenant.getName());
+      if (resource != null) {
+        resource.close();
+      }
     } catch (Exception e) {
-      log.error("Failed to inject context parameters", e);
-      throw reportErrorHandler.reportError(
-          "error.msg.reporting.error", "Failed to inject user security context parameters", e);
+      log.warn("Error closing BIRT resource", e);
     }
   }
 }

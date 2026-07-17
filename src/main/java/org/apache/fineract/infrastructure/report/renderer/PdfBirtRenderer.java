@@ -7,53 +7,46 @@
 package org.apache.fineract.infrastructure.report.renderer;
 
 import jakarta.ws.rs.core.Response;
-import java.io.ByteArrayOutputStream;
+import jakarta.ws.rs.core.StreamingOutput;
+import java.io.OutputStream;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
 import org.apache.fineract.infrastructure.report.util.FilenameUtils;
 import org.eclipse.birt.report.engine.api.IPDFRenderOption;
 import org.eclipse.birt.report.engine.api.IRenderOption;
-import org.eclipse.birt.report.engine.api.IRunAndRenderTask;
 import org.eclipse.birt.report.engine.api.PDFRenderOption;
 import org.springframework.stereotype.Component;
 
-@Slf4j
+/** Renderer for exporting BIRT outputs to PDF format with embedded fonts. */
 @Component("PDF")
 @RequiredArgsConstructor
-public class PdfBirtRenderer implements BirtRenderer {
+public class PdfBirtRenderer extends AbstractBirtRenderer {
 
   private final BirtPluginProperties birtProperties;
 
   @Override
-  public Response render(IRunAndRenderTask task, String reportName) throws Exception {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-    // Use PDFRenderOption for advanced PDF features
+  protected IRenderOption createRenderOption(OutputStream output, String reportName) {
     PDFRenderOption options = new PDFRenderOption();
     options.setOutputFormat(IRenderOption.OUTPUT_FORMAT_PDF);
     options.setOption(IPDFRenderOption.PAGE_OVERFLOW, IPDFRenderOption.FIT_TO_PAGE_SIZE);
-    options.setOutputStream(baos);
+    options.setOutputStream(output);
+
     if (StringUtils.isNotBlank(birtProperties.getFontsConfigPath())
         || StringUtils.isNotBlank(birtProperties.getFontsPath())) {
-
-      // Font Embedding Settings
       options.setEmbededFont(true);
-      options.setOption(
-          PDFRenderOption.PDF_FONT_SUBSTITUTION, Boolean.FALSE); // Prevent font replacement
+      options.setOption(PDFRenderOption.PDF_FONT_SUBSTITUTION, Boolean.FALSE);
     }
+    return options;
+  }
 
-    task.setRenderOption(options);
-    log.debug("Generating PDF report '{}' with font embedding enabled", reportName);
-    task.run();
-
-    return Response.ok(baos.toByteArray())
+  @Override
+  protected Response buildResponse(StreamingOutput stream, String reportName) {
+    return Response.ok(stream)
         .type("application/pdf")
         .header(
             "Content-Disposition",
             "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".pdf\"")
-        // .header("Cache-Control", "no-cache")
         .build();
   }
 }
