@@ -38,6 +38,7 @@ import org.apache.fineract.infrastructure.core.config.FineractProperties;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.core.service.database.DatabasePasswordEncryptor;
+import org.apache.fineract.infrastructure.core.service.database.RoutingDataSource;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.report.annotation.ReportService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
@@ -91,7 +92,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
   @Autowired
   public PentahoReportingProcessServiceImpl(
       final PlatformSecurityContext context,
-      final @Qualifier("hikariTenantDataSource") DataSource tenantDataSource,
+      final RoutingDataSource tenantDataSource,
       DatabasePasswordEncryptor databasePasswordEncryptor) {
     ClassicEngineBoot.getInstance().start();
     this.tenantDataSource = tenantDataSource;
@@ -173,7 +174,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
 
       // Override Data Connection Factory with the driver and url
       CompoundDataFactory compoundDataFactory = (CompoundDataFactory) masterReport.getDataFactory();
-      setConnectionDetail(compoundDataFactory.get(0));
+      setConnectionDetail(compoundDataFactory.getReference(0));
 
       final var reportEnvironment = (DefaultReportEnvironment) masterReport.getReportEnvironment();
       if (locale != null) {
@@ -186,7 +187,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       for (SubReport subReport : subReports) {
         CompoundDataFactory subReportCompoundDataFactory =
             (CompoundDataFactory) subReport.getDataFactory();
-        setConnectionDetail(subReportCompoundDataFactory.get(0));
+        setConnectionDetail(subReportCompoundDataFactory.getReference(0));
       }
 
       final var baos = new ByteArrayOutputStream();
@@ -423,7 +424,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
     @Override
     public Object getConnectionHash() {
       // Using hashcode to identify unique data sources for Pentaho's internal caching
-      return dataSource.hashCode();
+      return dataSource.hashCode() + "@" + ThreadLocalContextUtil.getTenant().getTenantIdentifier();
     }
   }
 }
