@@ -189,7 +189,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
 
       // Override Data Connection Factory with the driver and url
       CompoundDataFactory compoundDataFactory = (CompoundDataFactory) masterReport.getDataFactory();
-      setConnectionDetail(compoundDataFactory.get(0));
+      setConnectionDetail(compoundDataFactory.getReference(0));
 
       final var reportEnvironment = (DefaultReportEnvironment) masterReport.getReportEnvironment();
 
@@ -207,7 +207,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
       for (SubReport subReport : subReports) {
         CompoundDataFactory subReportCompoundDataFactory =
             (CompoundDataFactory) subReport.getDataFactory();
-        setConnectionDetail(subReportCompoundDataFactory.get(0));
+        setConnectionDetail(subReportCompoundDataFactory.getReference(0));
       }
 
       final var baos = new ByteArrayOutputStream();
