@@ -15,6 +15,8 @@
 package org.apache.fineract.infrastructure.report.service;
 
 import com.google.common.truth.Truth;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Map;
 import okhttp3.MediaType;
 import okhttp3.ResponseBody;
@@ -43,7 +45,7 @@ public class PentahoReportsTest {
   void runExpectedPaymentsPentahoReport() {
     ResponseBody r =
         ok(
-            fineract()
+            fineract("default")
                 .reportsRun
                 .runReportGetFile(
                     "Expected Payments By Date - Formatted",
@@ -67,29 +69,74 @@ public class PentahoReportsTest {
     Truth.assertThat(r.contentType()).isEqualTo(MediaType.get("application/pdf"));
   }
 
+  /**
+   * Verifies that a report is generated against the *requesting* tenant's database. The same report
+   * is run for two different tenants; each must return that tenant's own data, so the (data) output
+   * differs. Before the connection fix, {@code setConnectionDetail} was applied to a {@code
+   * derive()} copy of the data factory, so both tenants received the first/embedded tenant's data
+   * (identical output).
+   *
+   * <p>Requires the target Fineract to have two tenants with distinct client data. Override the
+   * tenant identifiers with {@code -Dfineract.it.tenantA} / {@code -Dfineract.it.tenantB}.
+   */
+  @Test
+  void reportUsesRequestingTenantDatabase() {
+    String tenantA = System.getProperty("fineract.it.tenantA", "greenbank");
+    String tenantB = System.getProperty("fineract.it.tenantB", "bluebank");
+
+    String reportA = tenantData(runClientListing(tenantA));
+    String reportB = tenantData(runClientListing(tenantB));
+
+    Truth.assertThat(reportA).isNotEmpty();
+    Truth.assertThat(reportB).isNotEmpty();
+    Truth.assertThat(reportA).isNotEqualTo(reportB);
+  }
+
+  private String runClientListing(String tenant) {
+    ResponseBody r =
+        ok(
+            fineract(tenant)
+                .reportsRun
+                .runReportGetFile(
+                    "Client Listing(Pentaho)",
+                    Map.of(
+                        "tenantIdentifier", tenant,
+                        "locale", "en",
+                        "R_selectOffice", "1",
+                        "output-type", "HTML")));
+    try {
+      return r.string();
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+  }
+
+  // Strips HTML tags and the report's generation-time footer ("On: <date>") so the comparison
+  // reflects the tenant's data rather than the timestamp (which always differs between runs).
+  private static String tenantData(String html) {
+    return html.replaceAll("<[^>]+>", " ")
+        .replaceAll("(?s)On:.*", "")
+        .replaceAll("\\s+", " ")
+        .trim();
+  }
+
   // ---
   // copy/paste from
   // fineract/integration-tests/src/test/java/org/apache/fineract/integrationtests/client/IntegrationTest.java
   // TODO move that from src/test to src/main publish an artifact, after
   // https://issues.apache.org/jira/browse/FINERACT-1102
 
-  private FineractClient fineract;
-
-  protected FineractClient fineract() {
-    if (fineract == null) {
-      String url =
-          System.getProperty("fineract.it.url", "https://localhost:8443/fineract-provider/api/v1/");
-      // insecure(true) should *ONLY* ever be used for https://localhost:8443, NOT in real clients!!
-      fineract =
-          FineractClient.builder()
-              .insecure(true)
-              .baseURL(url)
-              .tenant("default")
-              .basicAuth("mifos", "password")
-              .logging(Level.NONE)
-              .build();
-    }
-    return fineract;
+  protected FineractClient fineract(String tenant) {
+    String url =
+        System.getProperty("fineract.it.url", "https://localhost:8443/fineract-provider/api/v1/");
+    // insecure(true) should *ONLY* ever be used for https://localhost:8443, NOT in real clients!!
+    return FineractClient.builder()
+        .insecure(true)
+        .baseURL(url)
+        .tenant(tenant)
+        .basicAuth("mifos", "password")
+        .logging(Level.NONE)
+        .build();
   }
 
   protected <T> T ok(Call<T> call) {
