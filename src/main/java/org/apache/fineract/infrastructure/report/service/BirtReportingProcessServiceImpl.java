@@ -21,7 +21,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.api.ApiParameterHelper;
+import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
+import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
+import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
+import org.apache.fineract.infrastructure.core.service.database.DatabasePasswordEncryptor;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.report.annotation.ReportService;
 import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
@@ -53,6 +57,8 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
   private final DataSource dataSource;
   private final PlatformTransactionManager transactionManager;
   private final BirtSqlDialectInterpolator sqlDialectInterpolator;
+  private final DatabasePasswordEncryptor
+      databasePasswordEncryptor; // ADDED: Required for Pentaho parity
 
   @Override
   public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
@@ -72,7 +78,6 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     }
     String documentPath = tempDocPath.toAbsolutePath().toString();
 
-    // NEW LOGIC: Centralized try-catch for cleanup
     try {
       executeReportToDocument(reportName, locale, reportParams, tempDocPath, documentPath);
       return renderReport(reportName, outputType, tempDocPath, documentPath);
@@ -106,8 +111,9 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
             runTask.setErrorHandlingOption(IEngineTask.CANCEL_ON_ERROR);
 
             springConnection = DataSourceUtils.getConnection(dataSource);
-            runTask.getAppContext().put("OdaJDBCDriverPassInConnection", springConnection);
-            runTask.getAppContext().put("OdaJDBCDriverPassInConnectionCloseAfterUse", false);
+
+            // NEW LOGIC: Explicit tenant connection routing exactly like Pentaho
+            setConnectionDetail(runTask, springConnection);
 
             configureLocale(runTask, locale);
             parameterMapper.applyParameters(runTask, reportParams);
@@ -166,6 +172,38 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
   }
 
   // --- PRIVATE HELPER METHODS BELOW ---
+
+  /**
+   * Replicates the Pentaho plugin's tenant-aware credential injection. Forces BIRT's internal
+   * oda.jdbc threads to utilize the correct tenant database.
+   */
+  private void setConnectionDetail(IRunTask runTask, Connection springConnection) throws Exception {
+    final FineractPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
+    final FineractPlatformTenantConnection tenantConnection = tenant.getConnection();
+
+    // Safely extract the exact JDBC URL resolved by Fineract's RoutingDataSource
+    String jdbcUrl = springConnection.getMetaData().getURL();
+    String driverClassName =
+        org.apache.fineract.infrastructure.report.util.DataSourceUtils.getDriverClassName(
+            dataSource);
+
+    // Explicitly inject tenant credentials for isolated engine threads
+    runTask.getAppContext().put("OdaJDBCDriverClass", driverClassName);
+    runTask.getAppContext().put("OdaJDBCDriverUrl", jdbcUrl);
+    runTask.getAppContext().put("OdaJDBCDriverUser", tenantConnection.getSchemaUsername());
+    runTask
+        .getAppContext()
+        .put(
+            "OdaJDBCDriverPassword",
+            databasePasswordEncryptor.decrypt(tenantConnection.getSchemaPassword().trim()));
+
+    // Pass live connection for the main thread to optimize connection pool usage
+    runTask.getAppContext().put("OdaJDBCDriverPassInConnection", springConnection);
+    runTask.getAppContext().put("OdaJDBCDriverPassInConnectionCloseAfterUse", false);
+
+    log.debug(
+        "Injected explicit BIRT connection details for tenant: {}", tenant.getTenantIdentifier());
+  }
 
   private String resolveOutputType(MultivaluedMap<String, String> queryParams) {
     String type = queryParams.getFirst("output-type");

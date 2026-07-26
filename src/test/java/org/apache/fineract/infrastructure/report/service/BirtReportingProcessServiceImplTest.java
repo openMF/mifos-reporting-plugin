@@ -24,11 +24,16 @@ import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
+import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
+import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
+import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
+import org.apache.fineract.infrastructure.core.service.database.DatabasePasswordEncryptor;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
 import org.apache.fineract.infrastructure.report.renderer.BirtRenderer;
@@ -67,17 +72,21 @@ class BirtReportingProcessServiceImplTest {
   @Mock private BirtRenderer csvRenderer;
   @Mock private BirtPluginProperties birtProperties;
   @Mock private DataSource dataSource;
-
   @Mock private PlatformTransactionManager transactionManager;
-
   @Mock private BirtSqlDialectInterpolator sqlDialectInterpolator;
+  @Mock private DatabasePasswordEncryptor databasePasswordEncryptor;
+
   @InjectMocks private BirtReportingProcessServiceImpl service;
 
   private MockedStatic<DataSourceUtils> mockedDataSourceUtils;
+  private MockedStatic<ThreadLocalContextUtil> mockedThreadLocalContextUtil;
+  private MockedStatic<org.apache.fineract.infrastructure.report.util.DataSourceUtils>
+      mockedReportDataSourceUtils;
+
   private Connection mockConnection;
 
   @BeforeEach
-  void setUp() {
+  void setUp() throws Exception {
     Map<String, BirtRenderer> renderers =
         Map.of(
             "PDF", pdfRenderer,
@@ -88,21 +97,61 @@ class BirtReportingProcessServiceImplTest {
     ReflectionTestUtils.setField(service, "birtRenderers", renderers);
 
     lenient().when(birtProperties.getDefaultLocale()).thenReturn("en");
-
     lenient()
         .when(transactionManager.getTransaction(any()))
         .thenReturn(new SimpleTransactionStatus());
 
     mockConnection = mock(Connection.class);
+    DatabaseMetaData metaData = mock(DatabaseMetaData.class);
+    lenient().when(mockConnection.getMetaData()).thenReturn(metaData);
+    lenient()
+        .when(metaData.getURL())
+        .thenReturn("jdbc:postgresql://localhost:5432/fineract_tenant");
+
     mockedDataSourceUtils = mockStatic(DataSourceUtils.class);
     mockedDataSourceUtils
         .when(() -> DataSourceUtils.getConnection(any(DataSource.class)))
         .thenReturn(mockConnection);
+    mockedDataSourceUtils
+        .when(() -> DataSourceUtils.releaseConnection(any(Connection.class), any(DataSource.class)))
+        .thenAnswer(i -> null);
+
+    // Mock Tenant Context (Mirroring the Pentaho Plugin requirement)
+    FineractPlatformTenant tenant = mock(FineractPlatformTenant.class);
+    FineractPlatformTenantConnection tenantConnection =
+        mock(FineractPlatformTenantConnection.class);
+    lenient().when(tenant.getConnection()).thenReturn(tenantConnection);
+    lenient().when(tenant.getTenantIdentifier()).thenReturn("default");
+    lenient().when(tenantConnection.getSchemaUsername()).thenReturn("tenant_user");
+    lenient().when(tenantConnection.getSchemaPassword()).thenReturn("encrypted_pass   ");
+    lenient()
+        .when(databasePasswordEncryptor.decrypt("encrypted_pass"))
+        .thenReturn("decrypted_pass");
+
+    mockedThreadLocalContextUtil = mockStatic(ThreadLocalContextUtil.class);
+    mockedThreadLocalContextUtil.when(ThreadLocalContextUtil::getTenant).thenReturn(tenant);
+
+    mockedReportDataSourceUtils =
+        mockStatic(org.apache.fineract.infrastructure.report.util.DataSourceUtils.class);
+    mockedReportDataSourceUtils
+        .when(
+            () ->
+                org.apache.fineract.infrastructure.report.util.DataSourceUtils.getDriverClassName(
+                    any()))
+        .thenReturn("org.postgresql.Driver");
   }
 
   @AfterEach
   void tearDown() {
-    mockedDataSourceUtils.close();
+    if (mockedDataSourceUtils != null) {
+      mockedDataSourceUtils.close();
+    }
+    if (mockedThreadLocalContextUtil != null) {
+      mockedThreadLocalContextUtil.close();
+    }
+    if (mockedReportDataSourceUtils != null) {
+      mockedReportDataSourceUtils.close();
+    }
   }
 
   private MultivaluedMap<String, String> queryParams(String outputType) {
@@ -208,7 +257,7 @@ class BirtReportingProcessServiceImplTest {
   }
 
   @Test
-  @DisplayName("Should call all collaborators in correct order for two-phase execution")
+  @DisplayName("Should call all collaborators and inject tenant context correctly")
   void shouldCallCollaboratorsInCorrectOrder() throws Exception {
     IReportRunnable design = mock(IReportRunnable.class);
     ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
@@ -225,7 +274,13 @@ class BirtReportingProcessServiceImplTest {
 
     service.processRequest("sample", queryParams("PDF"));
 
-    // FIXED: Ensured absolutely every mock being verified is passed into this list
+    // Verify the new setConnectionDetail logic successfully populated the appContext
+    assertEquals("org.postgresql.Driver", appContext.get("OdaJDBCDriverClass"));
+    assertEquals(
+        "jdbc:postgresql://localhost:5432/fineract_tenant", appContext.get("OdaJDBCDriverUrl"));
+    assertEquals("tenant_user", appContext.get("OdaJDBCDriverUser"));
+    assertEquals("decrypted_pass", appContext.get("OdaJDBCDriverPassword"));
+
     org.mockito.InOrder inOrder =
         org.mockito.Mockito.inOrder(
             reportExecutionFactory,
