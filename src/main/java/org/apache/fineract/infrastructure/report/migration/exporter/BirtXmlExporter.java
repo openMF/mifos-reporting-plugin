@@ -20,8 +20,10 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
 
+@Component
 /** Serializes the in-memory BIRT DOM into formatted XML strings or physical .rptdesign files. */
 public class BirtXmlExporter {
 
