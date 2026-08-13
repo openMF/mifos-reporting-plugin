@@ -42,7 +42,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
-@Service
+@Service("birtReportingProcessService") // Explicitly named for Fineract's ServiceProvider lookup
 @Primary
 @ReportService(type = "BIRT")
 @RequiredArgsConstructor
@@ -57,8 +57,7 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
   private final DataSource dataSource;
   private final PlatformTransactionManager transactionManager;
   private final BirtSqlDialectInterpolator sqlDialectInterpolator;
-  private final DatabasePasswordEncryptor
-      databasePasswordEncryptor; // ADDED: Required for Pentaho parity
+  private final DatabasePasswordEncryptor databasePasswordEncryptor;
 
   @Override
   public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
@@ -111,8 +110,6 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
             runTask.setErrorHandlingOption(IEngineTask.CANCEL_ON_ERROR);
 
             springConnection = DataSourceUtils.getConnection(dataSource);
-
-            // NEW LOGIC: Explicit tenant connection routing exactly like Pentaho
             setConnectionDetail(runTask, springConnection);
 
             configureLocale(runTask, locale);
@@ -171,23 +168,15 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
         new ReportExportType("HTML", "html"));
   }
 
-  // --- PRIVATE HELPER METHODS BELOW ---
-
-  /**
-   * Replicates the Pentaho plugin's tenant-aware credential injection. Forces BIRT's internal
-   * oda.jdbc threads to utilize the correct tenant database.
-   */
   private void setConnectionDetail(IRunTask runTask, Connection springConnection) throws Exception {
     final FineractPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
     final FineractPlatformTenantConnection tenantConnection = tenant.getConnection();
 
-    // Safely extract the exact JDBC URL resolved by Fineract's RoutingDataSource
     String jdbcUrl = springConnection.getMetaData().getURL();
     String driverClassName =
         org.apache.fineract.infrastructure.report.util.DataSourceUtils.getDriverClassName(
             dataSource);
 
-    // Explicitly inject tenant credentials for isolated engine threads
     runTask.getAppContext().put("OdaJDBCDriverClass", driverClassName);
     runTask.getAppContext().put("OdaJDBCDriverUrl", jdbcUrl);
     runTask.getAppContext().put("OdaJDBCDriverUser", tenantConnection.getSchemaUsername());
@@ -197,12 +186,8 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
             "OdaJDBCDriverPassword",
             databasePasswordEncryptor.decrypt(tenantConnection.getSchemaPassword().trim()));
 
-    // Pass live connection for the main thread to optimize connection pool usage
     runTask.getAppContext().put("OdaJDBCDriverPassInConnection", springConnection);
     runTask.getAppContext().put("OdaJDBCDriverPassInConnectionCloseAfterUse", false);
-
-    log.debug(
-        "Injected explicit BIRT connection details for tenant: {}", tenant.getTenantIdentifier());
   }
 
   private String resolveOutputType(MultivaluedMap<String, String> queryParams) {
@@ -228,13 +213,10 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
   private void configureLocale(IEngineTask task, Locale locale) {
     if (StringUtils.isNotBlank(birtProperties.getDefaultLocale())) {
       task.setLocale(Locale.forLanguageTag(birtProperties.getDefaultLocale()));
-      log.debug("Using configured default locale: {}", birtProperties.getDefaultLocale());
     } else if (locale != null) {
       task.setLocale(locale);
-      log.debug("Using locale from request: {}", locale);
     } else {
       task.setLocale(Locale.ENGLISH);
-      log.debug("Using fallback locale: English");
     }
   }
 
@@ -243,8 +225,8 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
       if (tempDocPath != null) {
         Files.deleteIfExists(tempDocPath);
       }
-    } catch (java.io.IOException e) {
-      log.warn("Failed to delete temporary BIRT document: {}", documentPath, e);
+    } catch (Exception e) {
+      log.warn("Telemetry - Failed to delete temporary BIRT document: {}", documentPath);
     }
   }
 
@@ -252,8 +234,8 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     if (springConnection != null) {
       try {
         DataSourceUtils.releaseConnection(springConnection, dataSource);
-      } catch (Exception ex) {
-        log.warn("Failed to release JDBC connection", ex);
+      } catch (Exception e) {
+        log.warn("Telemetry - Failed to release BIRT JDBC connection");
       }
     }
   }
@@ -269,7 +251,7 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
         resource.close();
       }
     } catch (Exception e) {
-      log.warn("Error closing BIRT resource", e);
+      log.warn("Telemetry - Failed to close BIRT execution resource");
     }
   }
 }

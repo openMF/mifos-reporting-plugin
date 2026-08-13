@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?><report xmlns="http://www.eclipse.org/birt/2005/design" id="1" version="3.2.27">
+    <parameters>
+        <scalar-parameter id="100" name="tenantUrl">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="paramType">simple</property>
+            <property name="controlType">text-box</property>
+            <property name="isRequired">true</property>
+            <simple-property-list name="defaultValue">
+                <value type="constant">jdbc:mariadb://fineractmysql:3306/fineract_default</value>
+            </simple-property-list>
+        </scalar-parameter>
+        <scalar-parameter id="101" name="username">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="paramType">simple</property>
+            <property name="controlType">text-box</property>
+            <property name="isRequired">true</property>
+            <simple-property-list name="defaultValue">
+                <value type="constant">root</value>
+            </simple-property-list>
+        </scalar-parameter>
+        <scalar-parameter id="102" name="password">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="paramType">simple</property>
+            <property name="controlType">text-box</property>
+            <property name="isRequired">true</property>
+            <simple-property-list name="defaultValue">
+                <value type="constant">mysql</value>
+            </simple-property-list>
+        </scalar-parameter>
+        <scalar-parameter id="103" name="userhierarchy">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="paramType">simple</property>
+            <property name="controlType">text-box</property>
+            <property name="isRequired">true</property>
+            <simple-property-list name="defaultValue">
+                <value type="constant">.</value>
+            </simple-property-list>
+        </scalar-parameter>
+        <scalar-parameter id="104" name="branch">
+            <property name="valueType">static</property>
+            <property name="dataType">integer</property>
+            <property name="paramType">simple</property>
+            <property name="controlType">text-box</property>
+            <property name="isRequired">true</property>
+        </scalar-parameter>
+        <scalar-parameter id="105" name="loanOfficer">
+            <property name="valueType">static</property>
+            <property name="dataType">integer</property>
+            <property name="paramType">simple</property>
+            <property name="controlType">text-box</property>
+            <property name="isRequired">true</property>
+        </scalar-parameter>
+        <scalar-parameter id="106" name="currencyId">
+            <property name="valueType">static</property>
+            <property name="dataType">string</property>
+            <property name="paramType">simple</property>
+            <property name="controlType">text-box</property>
+            <property name="isRequired">true</property>
+        </scalar-parameter>
+        <scalar-parameter id="107" name="loanProductId">
+            <property name="valueType">static</property>
+            <property name="dataType">integer</property>
+            <property name="paramType">simple</property>
+            <property name="controlType">text-box</property>
+            <property name="isRequired">true</property>
+        </scalar-parameter>
+        <scalar-parameter id="108" name="fundId">
+            <property name="valueType">static</property>
+            <property name="dataType">integer</property>
+            <property name="paramType">simple</property>
+            <property name="controlType">text-box</property>
+            <property name="isRequired">true</property>
+        </scalar-parameter>
+        <scalar-parameter id="109" name="loanPurposeId">
+            <property name="valueType">static</property>
+            <property name="dataType">integer</property>
+            <property name="paramType">simple</property>
+            <property name="controlType">text-box</property>
+            <property name="isRequired">true</property>
+        </scalar-parameter>
+    </parameters>
+    <data-sets>
+        <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc.JdbcSelectDataSet" id="110" name="fundId">
+            <property name="dataSource">Data Source</property>
+            <xml-property name="queryText"><![CDATA[select "id", "name"
+from m_fund
+union all
+select -10, 'None'
+union 
+Select -1 ,'ALL'
+order by 2]]></xml-property>
+        </oda-data-set>
+        <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc.JdbcSelectDataSet" id="111" name="Branch">
+            <property name="dataSource">Data Source</property>
+            <xml-property name="queryText"><![CDATA[select "id", 
+concat(substring('........................................', 1, 
+((LENGTH("hierarchy") - LENGTH(REPLACE("hierarchy", '.', '')) - 1) * 4)),"name") as tc 
+from m_office 
+where "hierarchy" like concat (?::varchar, '%') 
+order by "hierarchy"]]></xml-property>
+            <list-property name="parameters">
+                <structure>
+                    <property name="name">userhierarchy_1</property>
+                    <property name="paramName">userhierarchy</property>
+                    <property name="dataType">string</property>
+                    <property name="position">1</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+            </list-property>
+        </oda-data-set>
+        <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc.JdbcSelectDataSet" id="112" name="Loan Officer">
+            <property name="dataSource">Data Source</property>
+            <xml-property name="queryText"><![CDATA[select lo."id", lo.display_name as "Name" 
+from m_office o 
+join m_office ounder on ounder.hierarchy like concat(o.hierarchy, '%')
+join m_staff lo on lo.office_id = ounder.id
+where lo.is_loan_officer::INTEGER = 1
+and o.id =?
+union all
+(select -10, 'None')
+union 
+select -1, 'ALL'
+order by 2]]></xml-property>
+            <list-property name="parameters">
+                <structure>
+                    <property name="name">branch_1</property>
+                    <property name="paramName">branch</property>
+                    <property name="dataType">integer</property>
+                    <property name="position">1</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+            </list-property>
+        </oda-data-set>
+        <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc.JdbcSelectDataSet" id="113" name="Active Loans - Details">
+            <property name="dataSource">Data Source</property>
+            <xml-property name="queryText"><![CDATA[select concat(repeat('..',   
+((LENGTH(ounder."hierarchy") - LENGTH(REPLACE(ounder."hierarchy", '.', '')) - 1))), ounder."name") as "Office/Branch",
+ounder.name,
+ounder.id,
+coalesce(cur.display_symbol, l.currency_code) as Currency,
+coalesce(lo.display_name,'-') as "Loan Officer", 
+c.display_name as "Client", 
+l.account_no as "Loan Account No.",
+coalesce(pl."name",'-') as "Product", 
+coalesce(f."name",'-') as Fund,  
+coalesce(l."principal_amount",0) as "Loan Amount", 
+coalesce(l."annual_nominal_interest_rate",0)as "Annual Nominal Interest Rate", 
+date(l.disbursedon_date) as "Disbursed Date", 
+date(l.expected_maturedon_date) as "Expected Matured On",
+
+coalesce(l."principal_repaid_derived",0) as "Principal Repaid",
+coalesce(l."principal_outstanding_derived",0) as "Principal Outstanding",
+coalesce(laa."principal_overdue_derived",0) as "Principal Overdue",
+
+coalesce(l."interest_repaid_derived",0.00) as "Interest Repaid",
+coalesce(l."interest_outstanding_derived",0) as "Interest Outstanding",
+coalesce(laa."interest_overdue_derived",0) as "Interest Overdue",
+
+coalesce(l."fee_charges_repaid_derived",0) as "Fees Repaid",
+coalesce(l."fee_charges_outstanding_derived",0)  as "Fees Outstanding",
+coalesce(laa."fee_charges_overdue_derived",0) as "Fees Overdue",
+
+coalesce(l."penalty_charges_repaid_derived",0) as "Penalties Repaid",
+coalesce(l."penalty_charges_outstanding_derived" ,0)as "Penalties Outstanding",
+coalesce(penalty_charges_overdue_derived,0) as "Penalties Overdue" 
+
+from m_office o 
+join m_office ounder on ounder.hierarchy like concat(o.hierarchy, '%') 
+and ounder.hierarchy like concat(?::varchar, '%') 
+join m_client c on c.office_id = ounder.id 
+join m_loan l on l.client_id = c.id 
+join m_product_loan pl on pl.id = l.product_id 
+left join m_staff lo on lo.id = l.loan_officer_id 
+left join m_currency cur on cur.code = l.currency_code 
+left join m_fund f on f.id = l.fund_id 
+left join m_loan_arrears_aging laa on laa.loan_id = l.id 
+
+where o.id = ?
+and (coalesce(l.loan_officer_id, -10) = ? or '-1' = ?) 
+and (l.currency_code = ? or '-1' = ?) 
+and (l.product_id = ? or '-1' = ?) 
+and (coalesce(l.fund_id, -10) = ? or '-1' = ?) 
+and (coalesce(l.loanpurpose_cv_id, -10) = ? or '-1' = ?) 
+and l.loan_status_id = 300 
+
+GROUP BY l.id,
+	ounder.id,
+	c.display_name,
+	l.account_no,
+	cur.display_symbol, 
+	lo.display_name,
+	pl."name", 
+	f."name", 
+	l."principal_amount", 
+	l."annual_nominal_interest_rate", 
+	l.disbursedon_date, 
+	l.expected_maturedon_date, 
+	laa."principal_overdue_derived", 
+	laa."interest_overdue_derived", 
+	laa."fee_charges_overdue_derived", 
+	laa."penalty_charges_overdue_derived"]]></xml-property>
+            <list-property name="parameters">
+                <structure>
+                    <property name="name">userhierarchy_1</property>
+                    <property name="paramName">userhierarchy</property>
+                    <property name="dataType">string</property>
+                    <property name="position">1</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">branch_2</property>
+                    <property name="paramName">branch</property>
+                    <property name="dataType">integer</property>
+                    <property name="position">2</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">loanOfficer_3</property>
+                    <property name="paramName">loanOfficer</property>
+                    <property name="dataType">integer</property>
+                    <property name="position">3</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">loanOfficer_4</property>
+                    <property name="paramName">loanOfficer</property>
+                    <property name="dataType">integer</property>
+                    <property name="position">4</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">currencyId_5</property>
+                    <property name="paramName">currencyId</property>
+                    <property name="dataType">string</property>
+                    <property name="position">5</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">currencyId_6</property>
+                    <property name="paramName">currencyId</property>
+                    <property name="dataType">string</property>
+                    <property name="position">6</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">loanProductId_7</property>
+                    <property name="paramName">loanProductId</property>
+                    <property name="dataType">integer</property>
+                    <property name="position">7</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">loanProductId_8</property>
+                    <property name="paramName">loanProductId</property>
+                    <property name="dataType">integer</property>
+                    <property name="position">8</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">fundId_9</property>
+                    <property name="paramName">fundId</property>
+                    <property name="dataType">integer</property>
+                    <property name="position">9</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">fundId_10</property>
+                    <property name="paramName">fundId</property>
+                    <property name="dataType">integer</property>
+                    <property name="position">10</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">loanPurposeId_11</property>
+                    <property name="paramName">loanPurposeId</property>
+                    <property name="dataType">integer</property>
+                    <property name="position">11</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">loanPurposeId_12</property>
+                    <property name="paramName">loanPurposeId</property>
+                    <property name="dataType">integer</property>
+                    <property name="position">12</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+            </list-property>
+        </oda-data-set>
+        <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc.JdbcSelectDataSet" id="114" name="CurrencyId">
+            <property name="dataSource">Data Source</property>
+            <xml-property name="queryText"><![CDATA[select code, "name"
+from m_organisation_currency
+union select '-1','All'
+order by code]]></xml-property>
+        </oda-data-set>
+        <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc.JdbcSelectDataSet" id="115" name="loanProductId">
+            <property name="dataSource">Data Source</property>
+            <xml-property name="queryText"><![CDATA[select p."id", p."name"
+from m_product_loan "p"
+where (p.currency_code = ? or '-1' = ?)
+union 
+select -1, 'All'
+order by 2]]></xml-property>
+            <list-property name="parameters">
+                <structure>
+                    <property name="name">currencyId_1</property>
+                    <property name="paramName">currencyId</property>
+                    <property name="dataType">string</property>
+                    <property name="position">1</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+                <structure>
+                    <property name="name">currencyId_2</property>
+                    <property name="paramName">currencyId</property>
+                    <property name="dataType">string</property>
+                    <property name="position">2</property>
+                    <property name="isInput">true</property>
+                    <property name="isOutput">false</property>
+                </structure>
+            </list-property>
+        </oda-data-set>
+        <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc.JdbcSelectDataSet" id="116" name="loanPurposeId">
+            <property name="dataSource">Data Source</property>
+            <xml-property name="queryText"><![CDATA[select -10 as "id", 'None' as code_value
+union all
+select * from (select CAST(v.id AS BIGINT), v.code_value
+from m_code "c"
+join m_code_value v on v.code_id = c.id
+where c.code_name = 'loanPurpose'
+order by v.order_position)  x 
+union 
+select -1 ,'All'
+/*
+select 1 ,'1'*/]]></xml-property>
+        </oda-data-set>
+    </data-sets>
+</report>
