@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -82,18 +83,12 @@ public abstract class BirtIntegrationTestBase {
         MountableFile.forHostPath(System.getProperty("birt.plugin.jar")),
         "/app/birt/birt-plugin.jar");
 
-    // 4. Mount the actual report design file from your repo into the container
-    FINERACT.withCopyFileToContainer(
-        MountableFile.forHostPath("birt/reports/Active_Loans_Details.rptdesign"),
-        "/app/birt/reports/Active_Loans_Details.rptdesign");
+    // 4. Mount the entire directory of migrated report design files into the container
+    FINERACT.withFileSystemBind(
+        java.nio.file.Paths.get("birt/reports").toAbsolutePath().toString(),
+        "/app/birt/reports",
+        BindMode.READ_ONLY);
 
-    // Mount the same report design file under a secondary alias for the E2E integration test
-    FINERACT.withCopyFileToContainer(
-        MountableFile.forHostPath("birt/reports/Active_Loans_Details.rptdesign"),
-        "/app/birt/reports/Integration_Test_Report.rptdesign");
-
-    // 5. Emulate Jib's classpath modification scheme to mount dependencies to Jib containers
-    // cleanly
     // 5. Emulate Jib's classpath modification scheme to mount dependencies cleanly
     FINERACT.withCreateContainerCmdModifier(
         cmd -> {
