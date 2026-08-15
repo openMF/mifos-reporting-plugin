@@ -30,7 +30,7 @@
 		<icu4j.version>78.3</icu4j.version>
                 <csv.emitter.version>1.0.11</csv.emitter.version>
 		<spotless.version>3.9.0</spotless.version>
-		<google-java-format.version>1.17.0</google-java-format.version>
+		<palantir-java-format.version>2.97.0</palantir-java-format.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -263,10 +263,10 @@
                     <version>${spotless.version}</version>
                     <configuration>
                         <java>
-                            <googleJavaFormat>
-                                <version>${google-java-format.version}</version>
-                                <style>GOOGLE</style>
-                            </googleJavaFormat>
+                            <palantirJavaFormat>
+                                <version>${palantir-java-format.version}</version>
+                                <style>PALANTIR</style>                                
+                            </palantirJavaFormat>
                             <importOrder />
                             <removeUnusedImports />
                         </java>

@@ -18,21 +18,21 @@ import org.springframework.stereotype.Component;
 @Component("XLSX")
 public class XlsxExcelBirtRenderer extends AbstractBirtRenderer {
 
-  @Override
-  protected IRenderOption createRenderOption(OutputStream output, String reportName) {
-    EXCELRenderOption options = new EXCELRenderOption();
-    options.setOutputFormat("xlsx");
-    options.setOutputStream(output);
-    return options;
-  }
+    @Override
+    protected IRenderOption createRenderOption(OutputStream output, String reportName) {
+        EXCELRenderOption options = new EXCELRenderOption();
+        options.setOutputFormat("xlsx");
+        options.setOutputStream(output);
+        return options;
+    }
 
-  @Override
-  protected Response buildResponse(StreamingOutput stream, String reportName) {
-    return Response.ok(stream)
-        .type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        .header(
-            "Content-Disposition",
-            "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".xlsx\"")
-        .build();
-  }
+    @Override
+    protected Response buildResponse(StreamingOutput stream, String reportName) {
+        return Response.ok(stream)
+                .type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .header(
+                        "Content-Disposition",
+                        "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".xlsx\"")
+                .build();
+    }
 }

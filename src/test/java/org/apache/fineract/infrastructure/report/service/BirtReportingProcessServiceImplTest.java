@@ -61,334 +61,335 @@ import org.springframework.transaction.support.SimpleTransactionStatus;
 @DisplayName("BirtReportingProcessServiceImpl Tests")
 class BirtReportingProcessServiceImplTest {
 
-  @Mock private IReportEngine reportEngine;
-  @Mock private BirtReportExecutionFactory reportExecutionFactory;
-  @Mock private BirtContextInjector contextInjector;
-  @Mock private BirtParameterMapper parameterMapper;
-  @Mock private BirtRenderer pdfRenderer;
-  @Mock private BirtRenderer htmlRenderer;
-  @Mock private BirtRenderer xlsRenderer;
-  @Mock private BirtRenderer xlsxRenderer;
-  @Mock private BirtRenderer csvRenderer;
-  @Mock private BirtPluginProperties birtProperties;
-  @Mock private DataSource dataSource;
-  @Mock private PlatformTransactionManager transactionManager;
-  @Mock private BirtSqlDialectInterpolator sqlDialectInterpolator;
-  @Mock private DatabasePasswordEncryptor databasePasswordEncryptor;
+    @Mock
+    private IReportEngine reportEngine;
 
-  @InjectMocks private BirtReportingProcessServiceImpl service;
+    @Mock
+    private BirtReportExecutionFactory reportExecutionFactory;
 
-  private MockedStatic<DataSourceUtils> mockedDataSourceUtils;
-  private MockedStatic<ThreadLocalContextUtil> mockedThreadLocalContextUtil;
-  private MockedStatic<org.apache.fineract.infrastructure.report.util.DataSourceUtils>
-      mockedReportDataSourceUtils;
+    @Mock
+    private BirtContextInjector contextInjector;
 
-  private Connection mockConnection;
+    @Mock
+    private BirtParameterMapper parameterMapper;
 
-  @BeforeEach
-  void setUp() throws Exception {
-    Map<String, BirtRenderer> renderers =
-        Map.of(
-            "PDF", pdfRenderer,
-            "HTML", htmlRenderer,
-            "XLS", xlsRenderer,
-            "XLSX", xlsxRenderer,
-            "CSV", csvRenderer);
-    ReflectionTestUtils.setField(service, "birtRenderers", renderers);
+    @Mock
+    private BirtRenderer pdfRenderer;
 
-    lenient().when(birtProperties.getDefaultLocale()).thenReturn("en");
-    lenient()
-        .when(transactionManager.getTransaction(any()))
-        .thenReturn(new SimpleTransactionStatus());
+    @Mock
+    private BirtRenderer htmlRenderer;
 
-    mockConnection = mock(Connection.class);
-    DatabaseMetaData metaData = mock(DatabaseMetaData.class);
-    lenient().when(mockConnection.getMetaData()).thenReturn(metaData);
-    lenient()
-        .when(metaData.getURL())
-        .thenReturn("jdbc:postgresql://localhost:5432/fineract_tenant");
+    @Mock
+    private BirtRenderer xlsRenderer;
 
-    mockedDataSourceUtils = mockStatic(DataSourceUtils.class);
-    mockedDataSourceUtils
-        .when(() -> DataSourceUtils.getConnection(any(DataSource.class)))
-        .thenReturn(mockConnection);
-    mockedDataSourceUtils
-        .when(() -> DataSourceUtils.releaseConnection(any(Connection.class), any(DataSource.class)))
-        .thenAnswer(i -> null);
+    @Mock
+    private BirtRenderer xlsxRenderer;
 
-    // Mock Tenant Context (Mirroring the Pentaho Plugin requirement)
-    FineractPlatformTenant tenant = mock(FineractPlatformTenant.class);
-    FineractPlatformTenantConnection tenantConnection =
-        mock(FineractPlatformTenantConnection.class);
-    lenient().when(tenant.getConnection()).thenReturn(tenantConnection);
-    lenient().when(tenant.getTenantIdentifier()).thenReturn("default");
-    lenient().when(tenantConnection.getSchemaUsername()).thenReturn("tenant_user");
-    lenient().when(tenantConnection.getSchemaPassword()).thenReturn("encrypted_pass   ");
-    lenient()
-        .when(databasePasswordEncryptor.decrypt("encrypted_pass"))
-        .thenReturn("decrypted_pass");
+    @Mock
+    private BirtRenderer csvRenderer;
 
-    mockedThreadLocalContextUtil = mockStatic(ThreadLocalContextUtil.class);
-    mockedThreadLocalContextUtil.when(ThreadLocalContextUtil::getTenant).thenReturn(tenant);
+    @Mock
+    private BirtPluginProperties birtProperties;
 
-    mockedReportDataSourceUtils =
-        mockStatic(org.apache.fineract.infrastructure.report.util.DataSourceUtils.class);
-    mockedReportDataSourceUtils
-        .when(
-            () ->
-                org.apache.fineract.infrastructure.report.util.DataSourceUtils.getDriverClassName(
-                    any()))
-        .thenReturn("org.postgresql.Driver");
-  }
+    @Mock
+    private DataSource dataSource;
 
-  @AfterEach
-  void tearDown() {
-    if (mockedDataSourceUtils != null) {
-      mockedDataSourceUtils.close();
+    @Mock
+    private PlatformTransactionManager transactionManager;
+
+    @Mock
+    private BirtSqlDialectInterpolator sqlDialectInterpolator;
+
+    @Mock
+    private DatabasePasswordEncryptor databasePasswordEncryptor;
+
+    @InjectMocks
+    private BirtReportingProcessServiceImpl service;
+
+    private MockedStatic<DataSourceUtils> mockedDataSourceUtils;
+    private MockedStatic<ThreadLocalContextUtil> mockedThreadLocalContextUtil;
+    private MockedStatic<org.apache.fineract.infrastructure.report.util.DataSourceUtils> mockedReportDataSourceUtils;
+
+    private Connection mockConnection;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        Map<String, BirtRenderer> renderers = Map.of(
+                "PDF", pdfRenderer,
+                "HTML", htmlRenderer,
+                "XLS", xlsRenderer,
+                "XLSX", xlsxRenderer,
+                "CSV", csvRenderer);
+        ReflectionTestUtils.setField(service, "birtRenderers", renderers);
+
+        lenient().when(birtProperties.getDefaultLocale()).thenReturn("en");
+        lenient().when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+
+        mockConnection = mock(Connection.class);
+        DatabaseMetaData metaData = mock(DatabaseMetaData.class);
+        lenient().when(mockConnection.getMetaData()).thenReturn(metaData);
+        lenient().when(metaData.getURL()).thenReturn("jdbc:postgresql://localhost:5432/fineract_tenant");
+
+        mockedDataSourceUtils = mockStatic(DataSourceUtils.class);
+        mockedDataSourceUtils
+                .when(() -> DataSourceUtils.getConnection(any(DataSource.class)))
+                .thenReturn(mockConnection);
+        mockedDataSourceUtils
+                .when(() -> DataSourceUtils.releaseConnection(any(Connection.class), any(DataSource.class)))
+                .thenAnswer(i -> null);
+
+        // Mock Tenant Context (Mirroring the Pentaho Plugin requirement)
+        FineractPlatformTenant tenant = mock(FineractPlatformTenant.class);
+        FineractPlatformTenantConnection tenantConnection = mock(FineractPlatformTenantConnection.class);
+        lenient().when(tenant.getConnection()).thenReturn(tenantConnection);
+        lenient().when(tenant.getTenantIdentifier()).thenReturn("default");
+        lenient().when(tenantConnection.getSchemaUsername()).thenReturn("tenant_user");
+        lenient().when(tenantConnection.getSchemaPassword()).thenReturn("encrypted_pass   ");
+        lenient().when(databasePasswordEncryptor.decrypt("encrypted_pass")).thenReturn("decrypted_pass");
+
+        mockedThreadLocalContextUtil = mockStatic(ThreadLocalContextUtil.class);
+        mockedThreadLocalContextUtil.when(ThreadLocalContextUtil::getTenant).thenReturn(tenant);
+
+        mockedReportDataSourceUtils = mockStatic(org.apache.fineract.infrastructure.report.util.DataSourceUtils.class);
+        mockedReportDataSourceUtils
+                .when(() -> org.apache.fineract.infrastructure.report.util.DataSourceUtils.getDriverClassName(any()))
+                .thenReturn("org.postgresql.Driver");
     }
-    if (mockedThreadLocalContextUtil != null) {
-      mockedThreadLocalContextUtil.close();
+
+    @AfterEach
+    void tearDown() {
+        if (mockedDataSourceUtils != null) {
+            mockedDataSourceUtils.close();
+        }
+        if (mockedThreadLocalContextUtil != null) {
+            mockedThreadLocalContextUtil.close();
+        }
+        if (mockedReportDataSourceUtils != null) {
+            mockedReportDataSourceUtils.close();
+        }
     }
-    if (mockedReportDataSourceUtils != null) {
-      mockedReportDataSourceUtils.close();
+
+    private MultivaluedMap<String, String> queryParams(String outputType) {
+        MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
+        if (outputType != null) {
+            params.add("output-type", outputType);
+        }
+        return params;
     }
-  }
 
-  private MultivaluedMap<String, String> queryParams(String outputType) {
-    MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
-    if (outputType != null) {
-      params.add("output-type", outputType);
+    @Test
+    @DisplayName("Should extract only R_ prefixed parameters")
+    void shouldExtractOnlyParamsWithR_Prefix() {
+        MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
+        params.add("R_startDate", "15 May 2026");
+        params.add("R_officeId", "1");
+        params.add("R_clientId", "42");
+        params.add("output-type", "PDF");
+        params.add("ignoreThis", "value");
+
+        Map<String, String> result = service.getReportParams("sample", params);
+
+        assertNotNull(result);
+        assertEquals(3, result.size());
+        assertEquals("15 May 2026", result.get("startDate"));
+        assertEquals("1", result.get("officeId"));
+        assertEquals("42", result.get("clientId"));
     }
-    return params;
-  }
 
-  @Test
-  @DisplayName("Should extract only R_ prefixed parameters")
-  void shouldExtractOnlyParamsWithR_Prefix() {
-    MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
-    params.add("R_startDate", "15 May 2026");
-    params.add("R_officeId", "1");
-    params.add("R_clientId", "42");
-    params.add("output-type", "PDF");
-    params.add("ignoreThis", "value");
+    @Test
+    @DisplayName("Should throw exception for invalid output type")
+    void shouldThrowWhenOutputTypeIsInvalid() {
+        PlatformDataIntegrityException ex = assertThrows(
+                PlatformDataIntegrityException.class, () -> service.processRequest("sample", queryParams("INVALID")));
 
-    Map<String, String> result = service.getReportParams("sample", params);
+        assertEquals("error.msg.invalid.outputType", ex.getGlobalisationMessageCode());
+    }
 
-    assertNotNull(result);
-    assertEquals(3, result.size());
-    assertEquals("15 May 2026", result.get("startDate"));
-    assertEquals("1", result.get("officeId"));
-    assertEquals("42", result.get("clientId"));
-  }
+    @ParameterizedTest
+    @CsvSource({
+        "PDF, application/pdf",
+        "HTML, text/html",
+        "XLS, application/vnd.ms-excel",
+        "XLSX, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "CSV, text/csv"
+    })
+    @DisplayName("Should support all major export formats via streaming")
+    void shouldSupportAllExportFormats(String outputType, String expectedMimeType) throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
 
-  @Test
-  @DisplayName("Should throw exception for invalid output type")
-  void shouldThrowWhenOutputTypeIsInvalid() {
-    PlatformDataIntegrityException ex =
-        assertThrows(
-            PlatformDataIntegrityException.class,
-            () -> service.processRequest("sample", queryParams("INVALID")));
+        HashMap<String, Object> appContext = new HashMap<>();
+        when(task.getAppContext()).thenReturn(appContext);
 
-    assertEquals("error.msg.invalid.outputType", ex.getGlobalisationMessageCode());
-  }
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
 
-  @ParameterizedTest
-  @CsvSource({
-    "PDF, application/pdf",
-    "HTML, text/html",
-    "XLS, application/vnd.ms-excel",
-    "XLSX, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "CSV, text/csv"
-  })
-  @DisplayName("Should support all major export formats via streaming")
-  void shouldSupportAllExportFormats(String outputType, String expectedMimeType) throws Exception {
-    IReportRunnable design = mock(IReportRunnable.class);
-    ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
-    IRunTask task = mock(IRunTask.class);
+        BirtRenderer renderer = getRendererForType(outputType);
+        when(renderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenReturn(Response.ok().type(expectedMimeType).build());
 
-    HashMap<String, Object> appContext = new HashMap<>();
-    when(task.getAppContext()).thenReturn(appContext);
+        doNothing().when(parameterMapper).applyParameters(any(), any());
 
-    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
-    when(design.getDesignHandle()).thenReturn(designHandle);
-    when(reportEngine.createRunTask(design)).thenReturn(task);
+        Response response = service.processRequest("sample", queryParams(outputType));
 
-    BirtRenderer renderer = getRendererForType(outputType);
-    when(renderer.render(eq(reportEngine), anyString(), anyString()))
-        .thenReturn(Response.ok().type(expectedMimeType).build());
+        assertNotNull(response);
+        assertEquals(200, response.getStatus());
+        assertEquals(expectedMimeType, response.getMediaType().toString());
+    }
 
-    doNothing().when(parameterMapper).applyParameters(any(), any());
+    @Test
+    @DisplayName("Should return correct list of supported export targets")
+    void shouldReturnSupportedExportTargets() {
+        List<ReportExportType> targets = service.getAvailableExportTargets();
 
-    Response response = service.processRequest("sample", queryParams(outputType));
+        assertNotNull(targets);
+        assertEquals(5, targets.size());
+        assertTrue(targets.stream().anyMatch(t -> "PDF".equals(t.getKey())));
+        assertTrue(targets.stream().anyMatch(t -> "XLS".equals(t.getKey())));
+        assertTrue(targets.stream().anyMatch(t -> "XLSX".equals(t.getKey())));
+        assertTrue(targets.stream().anyMatch(t -> "CSV".equals(t.getKey())));
+        assertTrue(targets.stream().anyMatch(t -> "HTML".equals(t.getKey())));
+    }
 
-    assertNotNull(response);
-    assertEquals(200, response.getStatus());
-    assertEquals(expectedMimeType, response.getMediaType().toString());
-  }
+    @Test
+    @DisplayName("Should throw when report file is not found")
+    void shouldThrowWhenReportFileNotFound() {
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any()))
+                .thenThrow(
+                        new PlatformDataIntegrityException("error.msg.reporting.report.not.found", "Report not found"));
 
-  @Test
-  @DisplayName("Should return correct list of supported export targets")
-  void shouldReturnSupportedExportTargets() {
-    List<ReportExportType> targets = service.getAvailableExportTargets();
+        PlatformDataIntegrityException ex = assertThrows(
+                PlatformDataIntegrityException.class, () -> service.processRequest("missing", queryParams("PDF")));
 
-    assertNotNull(targets);
-    assertEquals(5, targets.size());
-    assertTrue(targets.stream().anyMatch(t -> "PDF".equals(t.getKey())));
-    assertTrue(targets.stream().anyMatch(t -> "XLS".equals(t.getKey())));
-    assertTrue(targets.stream().anyMatch(t -> "XLSX".equals(t.getKey())));
-    assertTrue(targets.stream().anyMatch(t -> "CSV".equals(t.getKey())));
-    assertTrue(targets.stream().anyMatch(t -> "HTML".equals(t.getKey())));
-  }
+        assertEquals("error.msg.reporting.error", ex.getGlobalisationMessageCode());
+    }
 
-  @Test
-  @DisplayName("Should throw when report file is not found")
-  void shouldThrowWhenReportFileNotFound() {
-    when(reportExecutionFactory.createExecutionRunnable(anyString(), any()))
-        .thenThrow(
-            new PlatformDataIntegrityException(
-                "error.msg.reporting.report.not.found", "Report not found"));
+    @Test
+    @DisplayName("Should call all collaborators and inject tenant context correctly")
+    void shouldCallCollaboratorsInCorrectOrder() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
 
-    PlatformDataIntegrityException ex =
-        assertThrows(
-            PlatformDataIntegrityException.class,
-            () -> service.processRequest("missing", queryParams("PDF")));
+        HashMap<String, Object> appContext = new HashMap<>();
+        when(task.getAppContext()).thenReturn(appContext);
 
-    assertEquals("error.msg.reporting.error", ex.getGlobalisationMessageCode());
-  }
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+        when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenReturn(Response.ok().build());
 
-  @Test
-  @DisplayName("Should call all collaborators and inject tenant context correctly")
-  void shouldCallCollaboratorsInCorrectOrder() throws Exception {
-    IReportRunnable design = mock(IReportRunnable.class);
-    ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
-    IRunTask task = mock(IRunTask.class);
+        service.processRequest("sample", queryParams("PDF"));
 
-    HashMap<String, Object> appContext = new HashMap<>();
-    when(task.getAppContext()).thenReturn(appContext);
+        // Verify the new setConnectionDetail logic successfully populated the appContext
+        assertEquals("org.postgresql.Driver", appContext.get("OdaJDBCDriverClass"));
+        assertEquals("jdbc:postgresql://localhost:5432/fineract_tenant", appContext.get("OdaJDBCDriverUrl"));
+        assertEquals("tenant_user", appContext.get("OdaJDBCDriverUser"));
+        assertEquals("decrypted_pass", appContext.get("OdaJDBCDriverPassword"));
 
-    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
-    when(design.getDesignHandle()).thenReturn(designHandle);
-    when(reportEngine.createRunTask(design)).thenReturn(task);
-    when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
-        .thenReturn(Response.ok().build());
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(
+                reportExecutionFactory, sqlDialectInterpolator, parameterMapper, contextInjector, task, pdfRenderer);
 
-    service.processRequest("sample", queryParams("PDF"));
+        inOrder.verify(reportExecutionFactory).createExecutionRunnable(eq("sample"), any());
+        inOrder.verify(sqlDialectInterpolator).interpolate(designHandle);
+        inOrder.verify(parameterMapper).applyParameters(eq(task), any());
+        inOrder.verify(contextInjector).injectContextParameters(task);
+        inOrder.verify(task).run(anyString());
+        inOrder.verify(pdfRenderer).render(eq(reportEngine), anyString(), eq("sample"));
+    }
 
-    // Verify the new setConnectionDetail logic successfully populated the appContext
-    assertEquals("org.postgresql.Driver", appContext.get("OdaJDBCDriverClass"));
-    assertEquals(
-        "jdbc:postgresql://localhost:5432/fineract_tenant", appContext.get("OdaJDBCDriverUrl"));
-    assertEquals("tenant_user", appContext.get("OdaJDBCDriverUser"));
-    assertEquals("decrypted_pass", appContext.get("OdaJDBCDriverPassword"));
+    @Test
+    @DisplayName("Should close BIRT run task after database execution completes")
+    void shouldCloseTaskAfterRendering() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
 
-    org.mockito.InOrder inOrder =
-        org.mockito.Mockito.inOrder(
-            reportExecutionFactory,
-            sqlDialectInterpolator,
-            parameterMapper,
-            contextInjector,
-            task,
-            pdfRenderer);
+        HashMap<String, Object> appContext = new HashMap<>();
+        when(task.getAppContext()).thenReturn(appContext);
 
-    inOrder.verify(reportExecutionFactory).createExecutionRunnable(eq("sample"), any());
-    inOrder.verify(sqlDialectInterpolator).interpolate(designHandle);
-    inOrder.verify(parameterMapper).applyParameters(eq(task), any());
-    inOrder.verify(contextInjector).injectContextParameters(task);
-    inOrder.verify(task).run(anyString());
-    inOrder.verify(pdfRenderer).render(eq(reportEngine), anyString(), eq("sample"));
-  }
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+        when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenReturn(Response.ok().build());
 
-  @Test
-  @DisplayName("Should close BIRT run task after database execution completes")
-  void shouldCloseTaskAfterRendering() throws Exception {
-    IReportRunnable design = mock(IReportRunnable.class);
-    ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
-    IRunTask task = mock(IRunTask.class);
+        service.processRequest("sample", queryParams("PDF"));
 
-    HashMap<String, Object> appContext = new HashMap<>();
-    when(task.getAppContext()).thenReturn(appContext);
+        verify(task).close();
+    }
 
-    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
-    when(design.getDesignHandle()).thenReturn(designHandle);
-    when(reportEngine.createRunTask(design)).thenReturn(task);
-    when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
-        .thenReturn(Response.ok().build());
+    @Test
+    @DisplayName("Should default to HTML when output type is missing")
+    void shouldDefaultToHtmlWhenOutputTypeIsMissing() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
 
-    service.processRequest("sample", queryParams("PDF"));
+        HashMap<String, Object> appContext = new HashMap<>();
+        when(task.getAppContext()).thenReturn(appContext);
 
-    verify(task).close();
-  }
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
 
-  @Test
-  @DisplayName("Should default to HTML when output type is missing")
-  void shouldDefaultToHtmlWhenOutputTypeIsMissing() throws Exception {
-    IReportRunnable design = mock(IReportRunnable.class);
-    ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
-    IRunTask task = mock(IRunTask.class);
+        when(htmlRenderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenReturn(Response.ok().type("text/html").build());
 
-    HashMap<String, Object> appContext = new HashMap<>();
-    when(task.getAppContext()).thenReturn(appContext);
+        MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
 
-    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
-    when(design.getDesignHandle()).thenReturn(designHandle);
-    when(reportEngine.createRunTask(design)).thenReturn(task);
+        Response response = service.processRequest("sample", params);
 
-    when(htmlRenderer.render(eq(reportEngine), anyString(), anyString()))
-        .thenReturn(Response.ok().type("text/html").build());
+        assertEquals(200, response.getStatus());
+        verify(htmlRenderer).render(eq(reportEngine), anyString(), eq("sample"));
+    }
 
-    MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
+    @Test
+    @DisplayName("Should ignore blank report parameters")
+    void shouldIgnoreBlankReportParameters() {
+        MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
+        params.add("R_clientId", "");
+        params.add("R_officeId", "1");
 
-    Response response = service.processRequest("sample", params);
+        Map<String, String> result = service.getReportParams("sample", params);
 
-    assertEquals(200, response.getStatus());
-    verify(htmlRenderer).render(eq(reportEngine), anyString(), eq("sample"));
-  }
+        assertEquals(1, result.size());
+        assertEquals("1", result.get("officeId"));
+    }
 
-  @Test
-  @DisplayName("Should ignore blank report parameters")
-  void shouldIgnoreBlankReportParameters() {
-    MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
-    params.add("R_clientId", "");
-    params.add("R_officeId", "1");
+    @Test
+    @DisplayName("Should close run task when rendering stream setup throws exception")
+    void shouldCloseTaskWhenRendererThrowsException() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
 
-    Map<String, String> result = service.getReportParams("sample", params);
+        HashMap<String, Object> appContext = new HashMap<>();
+        when(task.getAppContext()).thenReturn(appContext);
 
-    assertEquals(1, result.size());
-    assertEquals("1", result.get("officeId"));
-  }
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
 
-  @Test
-  @DisplayName("Should close run task when rendering stream setup throws exception")
-  void shouldCloseTaskWhenRendererThrowsException() throws Exception {
-    IReportRunnable design = mock(IReportRunnable.class);
-    ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
-    IRunTask task = mock(IRunTask.class);
+        when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenThrow(new RuntimeException("Renderer stream setup failure"));
 
-    HashMap<String, Object> appContext = new HashMap<>();
-    when(task.getAppContext()).thenReturn(appContext);
+        assertThrows(PlatformDataIntegrityException.class, () -> service.processRequest("sample", queryParams("PDF")));
 
-    when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
-    when(design.getDesignHandle()).thenReturn(designHandle);
-    when(reportEngine.createRunTask(design)).thenReturn(task);
+        verify(task).close();
+    }
 
-    when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
-        .thenThrow(new RuntimeException("Renderer stream setup failure"));
-
-    assertThrows(
-        PlatformDataIntegrityException.class,
-        () -> service.processRequest("sample", queryParams("PDF")));
-
-    verify(task).close();
-  }
-
-  private BirtRenderer getRendererForType(String outputType) {
-    return switch (outputType.toUpperCase()) {
-      case "PDF" -> pdfRenderer;
-      case "HTML" -> htmlRenderer;
-      case "CSV" -> csvRenderer;
-      case "XLS" -> xlsRenderer;
-      case "XLSX" -> xlsxRenderer;
-      default -> htmlRenderer; // HTML
-    };
-  }
+    private BirtRenderer getRendererForType(String outputType) {
+        return switch (outputType.toUpperCase()) {
+            case "PDF" -> pdfRenderer;
+            case "HTML" -> htmlRenderer;
+            case "CSV" -> csvRenderer;
+            case "XLS" -> xlsRenderer;
+            case "XLSX" -> xlsxRenderer;
+            default -> htmlRenderer; // HTML
+        };
+    }
 }

@@ -8,9 +8,4 @@ package org.apache.fineract.infrastructure.report.migration.model;
 
 /** Intermediate Representation (IR) of a Pentaho report parameter. */
 public record PentahoParameter(
-    String name,
-    String type,
-    boolean isMandatory,
-    String defaultValue,
-    boolean isList,
-    String queryName) {}
+        String name, String type, boolean isMandatory, String defaultValue, boolean isList, String queryName) {}

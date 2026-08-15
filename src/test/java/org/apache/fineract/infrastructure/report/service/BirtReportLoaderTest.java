@@ -36,62 +36,64 @@ import org.mockito.quality.Strictness;
 @DisplayName("BirtReportLoader Tests")
 class BirtReportLoaderTest {
 
-  @Mock private IReportEngine reportEngine;
-  @Mock private BirtPluginProperties birtProperties;
-  @Mock private ReportErrorHandler reportErrorHandler;
+    @Mock
+    private IReportEngine reportEngine;
 
-  @InjectMocks private BirtReportLoader reportLoader;
+    @Mock
+    private BirtPluginProperties birtProperties;
 
-  @TempDir Path tempDir;
+    @Mock
+    private ReportErrorHandler reportErrorHandler;
 
-  @BeforeEach
-  void setUp() throws EngineException {
-    when(birtProperties.getReportsPath()).thenReturn(tempDir.toString());
+    @InjectMocks
+    private BirtReportLoader reportLoader;
 
-    // Mock error handler - will be used only in failure cases
-    when(reportErrorHandler.reportError(anyString(), anyString()))
-        .thenAnswer(
-            invocation -> {
-              String code = invocation.getArgument(0);
-              String message = invocation.getArgument(1);
-              throw new PlatformDataIntegrityException(code, message);
-            });
+    @TempDir
+    Path tempDir;
 
-    // Mock successful BIRT engine behavior
-    IReportRunnable mockReport = mock(IReportRunnable.class);
-    when(mockReport.getDesignHandle())
-        .thenReturn(mock(org.eclipse.birt.report.model.api.ReportDesignHandle.class));
-    when(reportEngine.openReportDesign(anyString())).thenReturn(mockReport);
-  }
+    @BeforeEach
+    void setUp() throws EngineException {
+        when(birtProperties.getReportsPath()).thenReturn(tempDir.toString());
 
-  @Test
-  @DisplayName("Should load report successfully when file exists")
-  void shouldLoadReportSuccessfully() throws Exception {
-    Path reportPath = tempDir.resolve("sample.rptdesign");
-    Files.writeString(reportPath, "<?xml version=\"1.0\"?><report></report>");
+        // Mock error handler - will be used only in failure cases
+        when(reportErrorHandler.reportError(anyString(), anyString())).thenAnswer(invocation -> {
+            String code = invocation.getArgument(0);
+            String message = invocation.getArgument(1);
+            throw new PlatformDataIntegrityException(code, message);
+        });
 
-    IReportRunnable report = reportLoader.loadReport("sample", null);
-    assertNotNull(report);
-  }
+        // Mock successful BIRT engine behavior
+        IReportRunnable mockReport = mock(IReportRunnable.class);
+        when(mockReport.getDesignHandle()).thenReturn(mock(org.eclipse.birt.report.model.api.ReportDesignHandle.class));
+        when(reportEngine.openReportDesign(anyString())).thenReturn(mockReport);
+    }
 
-  @Test
-  @DisplayName("Should throw PlatformDataIntegrityException when report not found")
-  void shouldThrowExceptionWhenReportNotFound() {
-    PlatformDataIntegrityException ex =
-        assertThrows(
-            PlatformDataIntegrityException.class, () -> reportLoader.loadReport("missing", null));
+    @Test
+    @DisplayName("Should load report successfully when file exists")
+    void shouldLoadReportSuccessfully() throws Exception {
+        Path reportPath = tempDir.resolve("sample.rptdesign");
+        Files.writeString(reportPath, "<?xml version=\"1.0\"?><report></report>");
 
-    assertEquals("error.msg.reporting.report.not.found", ex.getGlobalisationMessageCode());
-  }
+        IReportRunnable report = reportLoader.loadReport("sample", null);
+        assertNotNull(report);
+    }
 
-  @Test
-  @DisplayName("Should prefer locale-specific report first")
-  void shouldTryLocaleSpecificReportFirst() throws Exception {
-    Path esReport = tempDir.resolve("sample_es.rptdesign");
-    Files.writeString(esReport, "<?xml version=\"1.0\"?><report lang=\"es\"></report>");
+    @Test
+    @DisplayName("Should throw PlatformDataIntegrityException when report not found")
+    void shouldThrowExceptionWhenReportNotFound() {
+        PlatformDataIntegrityException ex =
+                assertThrows(PlatformDataIntegrityException.class, () -> reportLoader.loadReport("missing", null));
 
-    IReportRunnable report =
-        reportLoader.loadReport("sample", java.util.Locale.forLanguageTag("es"));
-    assertNotNull(report);
-  }
+        assertEquals("error.msg.reporting.report.not.found", ex.getGlobalisationMessageCode());
+    }
+
+    @Test
+    @DisplayName("Should prefer locale-specific report first")
+    void shouldTryLocaleSpecificReportFirst() throws Exception {
+        Path esReport = tempDir.resolve("sample_es.rptdesign");
+        Files.writeString(esReport, "<?xml version=\"1.0\"?><report lang=\"es\"></report>");
+
+        IReportRunnable report = reportLoader.loadReport("sample", java.util.Locale.forLanguageTag("es"));
+        assertNotNull(report);
+    }
 }

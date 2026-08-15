@@ -17,17 +17,17 @@ import org.springframework.stereotype.Component;
 @Component("HTML")
 public class HtmlBirtRenderer extends AbstractBirtRenderer {
 
-  @Override
-  protected IRenderOption createRenderOption(OutputStream output, String reportName) {
-    HTMLRenderOption options = new HTMLRenderOption();
-    options.setOutputFormat(IRenderOption.OUTPUT_FORMAT_HTML);
-    options.setEmbeddable(true);
-    options.setOutputStream(output);
-    return options;
-  }
+    @Override
+    protected IRenderOption createRenderOption(OutputStream output, String reportName) {
+        HTMLRenderOption options = new HTMLRenderOption();
+        options.setOutputFormat(IRenderOption.OUTPUT_FORMAT_HTML);
+        options.setEmbeddable(true);
+        options.setOutputStream(output);
+        return options;
+    }
 
-  @Override
-  protected Response buildResponse(StreamingOutput stream, String reportName) {
-    return Response.ok(stream).type("text/html").build();
-  }
+    @Override
+    protected Response buildResponse(StreamingOutput stream, String reportName) {
+        return Response.ok(stream).type("text/html").build();
+    }
 }

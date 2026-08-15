@@ -17,16 +17,16 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "mifos.birt")
 public class BirtPluginProperties {
 
-  // Path containing reports
-  private String reportsPath;
-  // Default Locale
-  private String defaultLocale = "en";
-  // Default Output Type
-  private boolean embedHtml = true;
-  // For report design cache
-  private int cacheTtlMinutes = 60;
-  // Directory containing custom TTF fonts
-  private String fontsPath;
-  // Optional Custom fontsConfig.xml location
-  private String fontsConfigPath;
+    // Path containing reports
+    private String reportsPath;
+    // Default Locale
+    private String defaultLocale = "en";
+    // Default Output Type
+    private boolean embedHtml = true;
+    // For report design cache
+    private int cacheTtlMinutes = 60;
+    // Directory containing custom TTF fonts
+    private String fontsPath;
+    // Optional Custom fontsConfig.xml location
+    private String fontsConfigPath;
 }

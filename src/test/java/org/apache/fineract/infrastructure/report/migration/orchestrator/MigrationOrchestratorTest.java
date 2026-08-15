@@ -28,85 +28,81 @@ import org.springframework.beans.factory.ObjectProvider;
 @DisplayName("MigrationOrchestrator Tests")
 class MigrationOrchestratorTest {
 
-  private MigrationOrchestrator orchestrator;
+    private MigrationOrchestrator orchestrator;
 
-  @BeforeEach
-  void setUp() {
-    PentahoArchiveMemoryLoader memoryLoader = new PentahoArchiveMemoryLoader();
-    PentahoPrptParser parser = new PentahoPrptParser(memoryLoader);
-    BirtXmlExporter exporter = new BirtXmlExporter();
+    @BeforeEach
+    void setUp() {
+        PentahoArchiveMemoryLoader memoryLoader = new PentahoArchiveMemoryLoader();
+        PentahoPrptParser parser = new PentahoPrptParser(memoryLoader);
+        BirtXmlExporter exporter = new BirtXmlExporter();
 
-    @SuppressWarnings("unchecked")
-    ObjectProvider<BirtDomBuilder> domBuilderProvider = Mockito.mock(ObjectProvider.class);
-    Mockito.when(domBuilderProvider.getObject()).thenAnswer(invocation -> new BirtDomBuilder());
+        @SuppressWarnings("unchecked")
+        ObjectProvider<BirtDomBuilder> domBuilderProvider = Mockito.mock(ObjectProvider.class);
+        Mockito.when(domBuilderProvider.getObject()).thenAnswer(invocation -> new BirtDomBuilder());
 
-    orchestrator = new MigrationOrchestrator(memoryLoader, parser, exporter, domBuilderProvider);
-  }
-
-  @Test
-  @DisplayName("Should successfully migrate a valid nested .prpt archive to a .rptdesign file")
-  void shouldMigrateValidNestedReport(@TempDir Path tempSource, @TempDir Path tempTarget)
-      throws Exception {
-    // Arrange: Create a nested directory structure and a mock PRPT zip file
-    Path nestedDir = Files.createDirectories(tempSource.resolve("categoryA").resolve("legacy"));
-    Path mockPrpt = nestedDir.resolve("mock_report.prpt");
-
-    // Generate a minimal valid Pentaho XML structure inside the PRPT archive
-    try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(mockPrpt))) {
-      zos.putNextEntry(new ZipEntry("datasources/sql-ds.xml"));
-      zos.write(
-          "<data><query name=\"q1\"><static-query>SELECT 1</static-query></query></data>"
-              .getBytes(StandardCharsets.UTF_8));
-      zos.closeEntry();
-
-      zos.putNextEntry(new ZipEntry("datadefinition.xml"));
-      zos.write("<data/>".getBytes(StandardCharsets.UTF_8));
-      zos.closeEntry();
-
-      zos.putNextEntry(new ZipEntry("layout.xml"));
-      zos.write("<layout/>".getBytes(StandardCharsets.UTF_8));
-      zos.closeEntry();
+        orchestrator = new MigrationOrchestrator(memoryLoader, parser, exporter, domBuilderProvider);
     }
 
-    // Act
-    boolean success = orchestrator.migrate(tempSource, tempTarget);
+    @Test
+    @DisplayName("Should successfully migrate a valid nested .prpt archive to a .rptdesign file")
+    void shouldMigrateValidNestedReport(@TempDir Path tempSource, @TempDir Path tempTarget) throws Exception {
+        // Arrange: Create a nested directory structure and a mock PRPT zip file
+        Path nestedDir = Files.createDirectories(tempSource.resolve("categoryA").resolve("legacy"));
+        Path mockPrpt = nestedDir.resolve("mock_report.prpt");
 
-    // Assert
-    assertThat(success).isTrue();
+        // Generate a minimal valid Pentaho XML structure inside the PRPT archive
+        try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(mockPrpt))) {
+            zos.putNextEntry(new ZipEntry("datasources/sql-ds.xml"));
+            zos.write("<data><query name=\"q1\"><static-query>SELECT 1</static-query></query></data>"
+                    .getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
 
-    // Verify the output exists in the correct nested target structure
-    Path expectedOutput =
-        tempTarget.resolve("categoryA").resolve("legacy").resolve("mock_report.rptdesign");
-    assertThat(Files.exists(expectedOutput)).isTrue();
+            zos.putNextEntry(new ZipEntry("datadefinition.xml"));
+            zos.write("<data/>".getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
 
-    // Verify basic BIRT XML export occurred
-    String xmlContent = Files.readString(expectedOutput);
-    assertThat(xmlContent).contains("<report");
-  }
+            zos.putNextEntry(new ZipEntry("layout.xml"));
+            zos.write("<layout/>".getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
+        }
 
-  @Test
-  @DisplayName("Should gracefully handle an existing but empty source directory")
-  void shouldHandleEmptyDirectories(@TempDir Path tempSource, @TempDir Path tempTarget)
-      throws Exception {
-    boolean success = orchestrator.migrate(tempSource, tempTarget);
+        // Act
+        boolean success = orchestrator.migrate(tempSource, tempTarget);
 
-    assertThat(success).isTrue();
-    try (Stream<Path> files = Files.list(tempTarget)) {
-      assertThat(files.count()).isZero();
+        // Assert
+        assertThat(success).isTrue();
+
+        // Verify the output exists in the correct nested target structure
+        Path expectedOutput = tempTarget.resolve("categoryA").resolve("legacy").resolve("mock_report.rptdesign");
+        assertThat(Files.exists(expectedOutput)).isTrue();
+
+        // Verify basic BIRT XML export occurred
+        String xmlContent = Files.readString(expectedOutput);
+        assertThat(xmlContent).contains("<report");
     }
-  }
 
-  @Test
-  @DisplayName("Should return false and handle non-existent source directories safely")
-  void shouldHandleInvalidDirectories(@TempDir Path tempTarget) throws Exception {
-    // Safely resolve a path guaranteed to be missing inside the temporary target
-    Path nonExistentSource = tempTarget.resolve("missing-source");
+    @Test
+    @DisplayName("Should gracefully handle an existing but empty source directory")
+    void shouldHandleEmptyDirectories(@TempDir Path tempSource, @TempDir Path tempTarget) throws Exception {
+        boolean success = orchestrator.migrate(tempSource, tempTarget);
 
-    boolean success = orchestrator.migrate(nonExistentSource, tempTarget);
-
-    assertThat(success).isFalse();
-    try (Stream<Path> files = Files.list(tempTarget)) {
-      assertThat(files.count()).isZero();
+        assertThat(success).isTrue();
+        try (Stream<Path> files = Files.list(tempTarget)) {
+            assertThat(files.count()).isZero();
+        }
     }
-  }
+
+    @Test
+    @DisplayName("Should return false and handle non-existent source directories safely")
+    void shouldHandleInvalidDirectories(@TempDir Path tempTarget) throws Exception {
+        // Safely resolve a path guaranteed to be missing inside the temporary target
+        Path nonExistentSource = tempTarget.resolve("missing-source");
+
+        boolean success = orchestrator.migrate(nonExistentSource, tempTarget);
+
+        assertThat(success).isFalse();
+        try (Stream<Path> files = Files.list(tempTarget)) {
+            assertThat(files.count()).isZero();
+        }
+    }
 }

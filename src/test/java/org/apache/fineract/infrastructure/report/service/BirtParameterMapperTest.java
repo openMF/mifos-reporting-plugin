@@ -34,60 +34,68 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("BirtParameterMapper TDD Tests")
 class BirtParameterMapperTest {
 
-  @Mock private ReportErrorHandler reportErrorHandler;
-  @Mock private IReportEngine reportEngine;
-  @Mock private IRunTask runTask;
-  @Mock private IReportRunnable reportRunnable;
-  @Mock private IGetParameterDefinitionTask paramTask;
-  @Mock private IParameterDefn parameterDefn;
+    @Mock
+    private ReportErrorHandler reportErrorHandler;
 
-  @InjectMocks private BirtParameterMapper mapper;
+    @Mock
+    private IReportEngine reportEngine;
 
-  // Senior Dev Note: Removed the bloated @BeforeEach and lenient() mocks.
-  // We only mock what we actually use in the specific tests.
+    @Mock
+    private IRunTask runTask;
 
-  @Test
-  @DisplayName("Should skip server managed parameters and map standard parameters")
-  void shouldMapParametersSuccessfully() throws Exception {
-    when(runTask.getReportRunnable()).thenReturn(reportRunnable);
-    when(reportEngine.createGetParameterDefinitionTask(reportRunnable)).thenReturn(paramTask);
+    @Mock
+    private IReportRunnable reportRunnable;
 
-    IParameterDefn managedParam = mock(IParameterDefn.class);
-    when(managedParam.getName()).thenReturn("userid");
+    @Mock
+    private IGetParameterDefinitionTask paramTask;
 
-    when(parameterDefn.getName()).thenReturn("R_startDate");
-    when(parameterDefn.getDataType()).thenReturn(IParameterDefn.TYPE_DATE);
+    @Mock
+    private IParameterDefn parameterDefn;
 
-    when(paramTask.getParameterDefns(anyBoolean()))
-        .thenReturn(java.util.List.of(managedParam, parameterDefn));
+    @InjectMocks
+    private BirtParameterMapper mapper;
 
-    mapper.applyParameters(runTask, Map.of("R_startDate", "01 January 2026"));
+    // Senior Dev Note: Removed the bloated @BeforeEach and lenient() mocks.
+    // We only mock what we actually use in the specific tests.
 
-    verify(runTask).setParameterValue(eq("R_startDate"), any(java.sql.Date.class));
-    verify(paramTask).close();
-  }
+    @Test
+    @DisplayName("Should skip server managed parameters and map standard parameters")
+    void shouldMapParametersSuccessfully() throws Exception {
+        when(runTask.getReportRunnable()).thenReturn(reportRunnable);
+        when(reportEngine.createGetParameterDefinitionTask(reportRunnable)).thenReturn(paramTask);
 
-  @Test
-  @DisplayName("Should throw exception if required parameter is missing")
-  void shouldThrowExceptionWhenParameterMissing() throws Exception {
-    when(runTask.getReportRunnable()).thenReturn(reportRunnable);
-    when(reportEngine.createGetParameterDefinitionTask(reportRunnable)).thenReturn(paramTask);
-    when(parameterDefn.getName()).thenReturn("R_missingParam");
-    when(paramTask.getParameterDefns(anyBoolean())).thenReturn(java.util.List.of(parameterDefn));
+        IParameterDefn managedParam = mock(IParameterDefn.class);
+        when(managedParam.getName()).thenReturn("userid");
 
-    // 1. Mock the initial 2-argument error when the parameter is missing
-    when(reportErrorHandler.reportError(anyString(), anyString()))
-        .thenReturn(
-            new PlatformDataIntegrityException(
-                "error.msg.reporting.missing.parameter", "Missing Parameter"));
+        when(parameterDefn.getName()).thenReturn("R_startDate");
+        when(parameterDefn.getDataType()).thenReturn(IParameterDefn.TYPE_DATE);
 
-    // 2. Mock the 3-argument error when the catch block intercepts it and re-wraps it!
-    when(reportErrorHandler.reportError(anyString(), anyString(), any()))
-        .thenReturn(
-            new PlatformDataIntegrityException("error.msg.reporting.error", "Wrapped Exception"));
+        when(paramTask.getParameterDefns(anyBoolean())).thenReturn(java.util.List.of(managedParam, parameterDefn));
 
-    assertThrows(
-        PlatformDataIntegrityException.class,
-        () -> mapper.applyParameters(runTask, Collections.emptyMap()));
-  }
+        mapper.applyParameters(runTask, Map.of("R_startDate", "01 January 2026"));
+
+        verify(runTask).setParameterValue(eq("R_startDate"), any(java.sql.Date.class));
+        verify(paramTask).close();
+    }
+
+    @Test
+    @DisplayName("Should throw exception if required parameter is missing")
+    void shouldThrowExceptionWhenParameterMissing() throws Exception {
+        when(runTask.getReportRunnable()).thenReturn(reportRunnable);
+        when(reportEngine.createGetParameterDefinitionTask(reportRunnable)).thenReturn(paramTask);
+        when(parameterDefn.getName()).thenReturn("R_missingParam");
+        when(paramTask.getParameterDefns(anyBoolean())).thenReturn(java.util.List.of(parameterDefn));
+
+        // 1. Mock the initial 2-argument error when the parameter is missing
+        when(reportErrorHandler.reportError(anyString(), anyString()))
+                .thenReturn(new PlatformDataIntegrityException(
+                        "error.msg.reporting.missing.parameter", "Missing Parameter"));
+
+        // 2. Mock the 3-argument error when the catch block intercepts it and re-wraps it!
+        when(reportErrorHandler.reportError(anyString(), anyString(), any()))
+                .thenReturn(new PlatformDataIntegrityException("error.msg.reporting.error", "Wrapped Exception"));
+
+        assertThrows(
+                PlatformDataIntegrityException.class, () -> mapper.applyParameters(runTask, Collections.emptyMap()));
+    }
 }

@@ -22,58 +22,57 @@ import org.springframework.context.annotation.DependsOn;
 @Configuration
 public class BirtPluginLiquibaseConfiguration {
 
-  private static final Logger LOG = LoggerFactory.getLogger(BirtPluginLiquibaseConfiguration.class);
+    private static final Logger LOG = LoggerFactory.getLogger(BirtPluginLiquibaseConfiguration.class);
 
-  @Autowired private TenantDetailsService tenantDetailsService;
+    @Autowired
+    private TenantDetailsService tenantDetailsService;
 
-  @Autowired private DataSource routingDataSource;
+    @Autowired
+    private DataSource routingDataSource;
 
-  @Bean
-  @DependsOn("tenantDatabaseUpgradeService") // Must run AFTER Fineract core DB is set up
-  public String runSelfServicePluginMigrations() {
-    LOG.info("******************************************************");
-    LOG.info("*     Mifos X Reporting Plugin Migrations Started    *");
-    LOG.info("******************************************************");
+    @Bean
+    @DependsOn("tenantDatabaseUpgradeService") // Must run AFTER Fineract core DB is set up
+    public String runSelfServicePluginMigrations() {
+        LOG.info("******************************************************");
+        LOG.info("*     Mifos X Reporting Plugin Migrations Started    *");
+        LOG.info("******************************************************");
 
-    List<FineractPlatformTenant> tenants = tenantDetailsService.findAllTenants();
+        List<FineractPlatformTenant> tenants = tenantDetailsService.findAllTenants();
 
-    for (FineractPlatformTenant tenant : tenants) {
-      LOG.info(
-          "Running Mifos X Reporting Plugin default reports for tenant: {}",
-          tenant.getTenantIdentifier());
-      try {
-        // 1. Force the database connection to route to THIS specific tenant
-        ThreadLocalContextUtil.setTenant(tenant);
+        for (FineractPlatformTenant tenant : tenants) {
+            LOG.info("Running Mifos X Reporting Plugin default reports for tenant: {}", tenant.getTenantIdentifier());
+            try {
+                // 1. Force the database connection to route to THIS specific tenant
+                ThreadLocalContextUtil.setTenant(tenant);
 
-        // 2. Initialize Liquibase for the tenant
-        SpringLiquibase liquibase = new SpringLiquibase();
-        liquibase.setDataSource(routingDataSource);
+                // 2. Initialize Liquibase for the tenant
+                SpringLiquibase liquibase = new SpringLiquibase();
+                liquibase.setDataSource(routingDataSource);
 
-        // Ensure this matches the exact path of the plugin's master changelog
-        liquibase.setChangeLog(
-            "classpath:/db/changelog/tenant/module/reporting/module-changelog-master.xml");
-        liquibase.setShouldRun(true);
+                // Ensure this matches the exact path of the plugin's master changelog
+                liquibase.setChangeLog("classpath:/db/changelog/tenant/module/reporting/module-changelog-master.xml");
+                liquibase.setShouldRun(true);
 
-        // 3. Execute the migration
-        liquibase.afterPropertiesSet();
+                // 3. Execute the migration
+                liquibase.afterPropertiesSet();
 
-        LOG.info(
-            "Successfully migrated Mifos X Reporting Plugin default reports for tenant: {}",
-            tenant.getTenantIdentifier());
-      } catch (Exception e) {
-        LOG.error(
-            "Failed to migrate Mifos X Reporting Plugin default reports for tenant: {}",
-            tenant.getTenantIdentifier(),
-            e);
-        throw new RuntimeException("Mifos X Reporting Plugin Failed", e);
-      } finally {
-        // 4. Always clear the context so we don't leak connections
-        ThreadLocalContextUtil.clearTenant();
-      }
+                LOG.info(
+                        "Successfully migrated Mifos X Reporting Plugin default reports for tenant: {}",
+                        tenant.getTenantIdentifier());
+            } catch (Exception e) {
+                LOG.error(
+                        "Failed to migrate Mifos X Reporting Plugin default reports for tenant: {}",
+                        tenant.getTenantIdentifier(),
+                        e);
+                throw new RuntimeException("Mifos X Reporting Plugin Failed", e);
+            } finally {
+                // 4. Always clear the context so we don't leak connections
+                ThreadLocalContextUtil.clearTenant();
+            }
+        }
+        LOG.info("******************************************************");
+        LOG.info("*   Mifos X Reporting Plugin Migrations Completed    *");
+        LOG.info("******************************************************");
+        return "Mifos X Reporting Plugin Migrations Completed";
     }
-    LOG.info("******************************************************");
-    LOG.info("*   Mifos X Reporting Plugin Migrations Completed    *");
-    LOG.info("******************************************************");
-    return "Mifos X Reporting Plugin Migrations Completed";
-  }
 }

@@ -29,31 +29,36 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("BirtContextInjector TDD Tests")
 class BirtContextInjectorTest {
 
-  @Mock private PlatformSecurityContext securityContext;
-  @Mock private ReportErrorHandler reportErrorHandler;
-  @Mock private IRunTask runTask;
+    @Mock
+    private PlatformSecurityContext securityContext;
 
-  @InjectMocks private BirtContextInjector injector;
+    @Mock
+    private ReportErrorHandler reportErrorHandler;
 
-  @Test
-  @DisplayName("Should successfully inject user hierarchy and userid into task")
-  void shouldInjectContextSuccessfully() {
-    AppUser mockUser = mock(AppUser.class, RETURNS_DEEP_STUBS);
-    FineractPlatformTenant mockTenant = mock(FineractPlatformTenant.class);
+    @Mock
+    private IRunTask runTask;
 
-    when(securityContext.authenticatedUser()).thenReturn(mockUser);
-    when(mockUser.getId()).thenReturn(1L);
-    when(mockUser.getOffice().getHierarchy()).thenReturn(".1.");
-    when(mockTenant.getName()).thenReturn("default");
+    @InjectMocks
+    private BirtContextInjector injector;
 
-    try (MockedStatic<ThreadLocalContextUtil> mockedThreadLocal =
-        mockStatic(ThreadLocalContextUtil.class)) {
-      mockedThreadLocal.when(ThreadLocalContextUtil::getTenant).thenReturn(mockTenant);
+    @Test
+    @DisplayName("Should successfully inject user hierarchy and userid into task")
+    void shouldInjectContextSuccessfully() {
+        AppUser mockUser = mock(AppUser.class, RETURNS_DEEP_STUBS);
+        FineractPlatformTenant mockTenant = mock(FineractPlatformTenant.class);
 
-      injector.injectContextParameters(runTask);
+        when(securityContext.authenticatedUser()).thenReturn(mockUser);
+        when(mockUser.getId()).thenReturn(1L);
+        when(mockUser.getOffice().getHierarchy()).thenReturn(".1.");
+        when(mockTenant.getName()).thenReturn("default");
 
-      verify(runTask).setParameterValue("userhierarchy", ".1.");
-      verify(runTask).setParameterValue("userid", 1L);
+        try (MockedStatic<ThreadLocalContextUtil> mockedThreadLocal = mockStatic(ThreadLocalContextUtil.class)) {
+            mockedThreadLocal.when(ThreadLocalContextUtil::getTenant).thenReturn(mockTenant);
+
+            injector.injectContextParameters(runTask);
+
+            verify(runTask).setParameterValue("userhierarchy", ".1.");
+            verify(runTask).setParameterValue("userid", 1L);
+        }
     }
-  }
 }

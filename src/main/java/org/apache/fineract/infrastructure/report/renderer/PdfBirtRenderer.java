@@ -23,30 +23,30 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PdfBirtRenderer extends AbstractBirtRenderer {
 
-  private final BirtPluginProperties birtProperties;
+    private final BirtPluginProperties birtProperties;
 
-  @Override
-  protected IRenderOption createRenderOption(OutputStream output, String reportName) {
-    PDFRenderOption options = new PDFRenderOption();
-    options.setOutputFormat(IRenderOption.OUTPUT_FORMAT_PDF);
-    options.setOption(IPDFRenderOption.PAGE_OVERFLOW, IPDFRenderOption.FIT_TO_PAGE_SIZE);
-    options.setOutputStream(output);
+    @Override
+    protected IRenderOption createRenderOption(OutputStream output, String reportName) {
+        PDFRenderOption options = new PDFRenderOption();
+        options.setOutputFormat(IRenderOption.OUTPUT_FORMAT_PDF);
+        options.setOption(IPDFRenderOption.PAGE_OVERFLOW, IPDFRenderOption.FIT_TO_PAGE_SIZE);
+        options.setOutputStream(output);
 
-    if (StringUtils.isNotBlank(birtProperties.getFontsConfigPath())
-        || StringUtils.isNotBlank(birtProperties.getFontsPath())) {
-      options.setEmbededFont(true);
-      options.setOption(PDFRenderOption.PDF_FONT_SUBSTITUTION, Boolean.FALSE);
+        if (StringUtils.isNotBlank(birtProperties.getFontsConfigPath())
+                || StringUtils.isNotBlank(birtProperties.getFontsPath())) {
+            options.setEmbededFont(true);
+            options.setOption(PDFRenderOption.PDF_FONT_SUBSTITUTION, Boolean.FALSE);
+        }
+        return options;
     }
-    return options;
-  }
 
-  @Override
-  protected Response buildResponse(StreamingOutput stream, String reportName) {
-    return Response.ok(stream)
-        .type("application/pdf")
-        .header(
-            "Content-Disposition",
-            "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".pdf\"")
-        .build();
-  }
+    @Override
+    protected Response buildResponse(StreamingOutput stream, String reportName) {
+        return Response.ok(stream)
+                .type("application/pdf")
+                .header(
+                        "Content-Disposition",
+                        "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".pdf\"")
+                .build();
+    }
 }

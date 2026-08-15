@@ -16,12 +16,12 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class BirtPluginInformation implements InitializingBean {
 
-  @Override
-  public void afterPropertiesSet() throws Exception {
-    log.warn("*******************************************************");
-    log.warn("*                                                     *");
-    log.warn("*            Mifos X Reporting Plugin Enabled         *");
-    log.warn("*                                                     *");
-    log.warn("*******************************************************");
-  }
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        log.warn("*******************************************************");
+        log.warn("*                                                     *");
+        log.warn("*            Mifos X Reporting Plugin Enabled         *");
+        log.warn("*                                                     *");
+        log.warn("*******************************************************");
+    }
 }

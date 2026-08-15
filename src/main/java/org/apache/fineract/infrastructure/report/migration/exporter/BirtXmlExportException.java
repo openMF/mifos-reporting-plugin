@@ -11,11 +11,11 @@ package org.apache.fineract.infrastructure.report.migration.exporter;
  */
 public class BirtXmlExportException extends RuntimeException {
 
-  public BirtXmlExportException(String message) {
-    super(message);
-  }
+    public BirtXmlExportException(String message) {
+        super(message);
+    }
 
-  public BirtXmlExportException(String message, Throwable cause) {
-    super(message, cause);
-  }
+    public BirtXmlExportException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

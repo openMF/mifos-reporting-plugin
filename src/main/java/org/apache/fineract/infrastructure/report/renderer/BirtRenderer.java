@@ -10,6 +10,5 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.birt.report.engine.api.IReportEngine;
 
 public interface BirtRenderer {
-  Response render(IReportEngine reportEngine, String documentPath, String reportName)
-      throws Exception;
+    Response render(IReportEngine reportEngine, String documentPath, String reportName) throws Exception;
 }

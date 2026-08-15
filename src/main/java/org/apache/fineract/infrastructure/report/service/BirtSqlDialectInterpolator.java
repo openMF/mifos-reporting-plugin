@@ -29,86 +29,85 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class BirtSqlDialectInterpolator {
 
-  private final DataSource dataSource;
+    private final DataSource dataSource;
 
-  private static final Pattern MYSQL_IFNULL_PATTERN = Pattern.compile("(?i)\\bifnull\\s*\\(");
-  private static final Pattern GOV_BACKTICK_PATTERN = Pattern.compile("`");
+    private static final Pattern MYSQL_IFNULL_PATTERN = Pattern.compile("(?i)\\bifnull\\s*\\(");
+    private static final Pattern GOV_BACKTICK_PATTERN = Pattern.compile("`");
 
-  /**
-   * Intercepts the BIRT report design and translates SQL queries at runtime. Modifies underlying
-   * dataset queries to match the active database dialect (e.g., PostgreSQL or MariaDB), ensuring
-   * cross-database compatibility.
-   *
-   * @param designHandle The parsed BIRT report design handle.
-   */
-  public void interpolate(ReportDesignHandle designHandle) {
-    if (designHandle == null) {
-      return;
-    }
-
-    String dialect = detectDatabaseDialect();
-    log.debug("Runtime SQL Interpolation executing for target dialect: {}", dialect);
-
-    Iterator<?> dataSets = designHandle.getAllDataSets().iterator();
-    while (dataSets.hasNext()) {
-      Object next = dataSets.next();
-
-      if (next instanceof OdaDataSetHandle odaDataSetHandle) {
-        String originalSql = odaDataSetHandle.getQueryText();
-
-        if (StringUtils.isNotBlank(originalSql)) {
-          String processedSql = translateSql(originalSql, dialect);
-
-          if (!originalSql.equals(processedSql)) {
-            try {
-              odaDataSetHandle.setQueryText(processedSql);
-              log.trace("Successfully interpolated SQL dataset query for dialect optimization.");
-            } catch (SemanticException e) {
-              log.error(
-                  "Failed to set interpolated query text for dataset: {}",
-                  odaDataSetHandle.getName(),
-                  e);
-              throw new PlatformDataIntegrityException(
-                  "error.msg.reporting.birt.sql.interpolation.failed",
-                  "BIRT engine rejected SQL dialect interpolation",
-                  e);
-            }
-          }
+    /**
+     * Intercepts the BIRT report design and translates SQL queries at runtime. Modifies underlying
+     * dataset queries to match the active database dialect (e.g., PostgreSQL or MariaDB), ensuring
+     * cross-database compatibility.
+     *
+     * @param designHandle The parsed BIRT report design handle.
+     */
+    public void interpolate(ReportDesignHandle designHandle) {
+        if (designHandle == null) {
+            return;
         }
-      }
+
+        String dialect = detectDatabaseDialect();
+        log.debug("Runtime SQL Interpolation executing for target dialect: {}", dialect);
+
+        Iterator<?> dataSets = designHandle.getAllDataSets().iterator();
+        while (dataSets.hasNext()) {
+            Object next = dataSets.next();
+
+            if (next instanceof OdaDataSetHandle odaDataSetHandle) {
+                String originalSql = odaDataSetHandle.getQueryText();
+
+                if (StringUtils.isNotBlank(originalSql)) {
+                    String processedSql = translateSql(originalSql, dialect);
+
+                    if (!originalSql.equals(processedSql)) {
+                        try {
+                            odaDataSetHandle.setQueryText(processedSql);
+                            log.trace("Successfully interpolated SQL dataset query for dialect optimization.");
+                        } catch (SemanticException e) {
+                            log.error(
+                                    "Failed to set interpolated query text for dataset: {}",
+                                    odaDataSetHandle.getName(),
+                                    e);
+                            throw new PlatformDataIntegrityException(
+                                    "error.msg.reporting.birt.sql.interpolation.failed",
+                                    "BIRT engine rejected SQL dialect interpolation",
+                                    e);
+                        }
+                    }
+                }
+            }
+        }
     }
-  }
 
-  private String translateSql(String sql, String dialect) {
-    if (sql == null) return null;
+    private String translateSql(String sql, String dialect) {
+        if (sql == null) return null;
 
-    if ("POSTGRESQL".equalsIgnoreCase(dialect)) {
-      sql = GOV_BACKTICK_PATTERN.matcher(sql).replaceAll("");
-      sql = MYSQL_IFNULL_PATTERN.matcher(sql).replaceAll("coalesce(");
-      sql = sql.replace("FUNC_NULL(", "coalesce(");
-    } else if ("MARIADB".equalsIgnoreCase(dialect)) {
-      sql = sql.replace("FUNC_NULL(", "ifnull(");
+        if ("POSTGRESQL".equalsIgnoreCase(dialect)) {
+            sql = GOV_BACKTICK_PATTERN.matcher(sql).replaceAll("");
+            sql = MYSQL_IFNULL_PATTERN.matcher(sql).replaceAll("coalesce(");
+            sql = sql.replace("FUNC_NULL(", "coalesce(");
+        } else if ("MARIADB".equalsIgnoreCase(dialect)) {
+            sql = sql.replace("FUNC_NULL(", "ifnull(");
+        }
+
+        return sql;
     }
 
-    return sql;
-  }
-
-  private String detectDatabaseDialect() {
-    // Participate in the existing Spring Transaction context to avoid connection leaks
-    Connection connection = DataSourceUtils.getConnection(dataSource);
-    try {
-      String prodName = connection.getMetaData().getDatabaseProductName();
-      if (prodName != null && prodName.toUpperCase().contains("POSTGRES")) {
-        return "POSTGRESQL";
-      }
-      return "MARIADB";
-    } catch (Exception e) {
-      log.warn(
-          "Failed to auto-detect database dialect via metadata. Falling back to POSTGRESQL.", e);
-      return "POSTGRESQL";
-    } finally {
-      // Safely release the connection back to Spring's transaction manager
-      DataSourceUtils.releaseConnection(connection, dataSource);
+    private String detectDatabaseDialect() {
+        // Participate in the existing Spring Transaction context to avoid connection leaks
+        Connection connection = DataSourceUtils.getConnection(dataSource);
+        try {
+            String prodName = connection.getMetaData().getDatabaseProductName();
+            if (prodName != null && prodName.toUpperCase().contains("POSTGRES")) {
+                return "POSTGRESQL";
+            }
+            return "MARIADB";
+        } catch (Exception e) {
+            log.warn("Failed to auto-detect database dialect via metadata. Falling back to POSTGRESQL.", e);
+            return "POSTGRESQL";
+        } finally {
+            // Safely release the connection back to Spring's transaction manager
+            DataSourceUtils.releaseConnection(connection, dataSource);
+        }
     }
-  }
 }

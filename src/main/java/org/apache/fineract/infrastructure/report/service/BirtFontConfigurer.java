@@ -21,38 +21,38 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class BirtFontConfigurer {
 
-  private final BirtPluginProperties birtProperties;
+    private final BirtPluginProperties birtProperties;
 
-  @PostConstruct
-  public void configureFonts() {
-    try {
-      log.info("BIRT font configuration initiated");
-      EngineConfig engineConfig = new EngineConfig();
+    @PostConstruct
+    public void configureFonts() {
+        try {
+            log.info("BIRT font configuration initiated");
+            EngineConfig engineConfig = new EngineConfig();
 
-      // Add custom font path
-      String fontsDir = birtProperties.getFontsPath();
-      if (StringUtils.isNotBlank(fontsDir)) {
-        if (fontsDir.startsWith("classpath:")) {
-          // Handle classpath fonts (copy to temp dir or use File)
-          // For simplicity, we'll support external directory first
-        } else {
-          File fontFolder = new File(fontsDir);
-          if (fontFolder.exists()) {
-            engineConfig.setFontConfig(
-                fontFolder.toURI().toURL()); // or use setBIRTFontPath if available
-          }
+            // Add custom font path
+            String fontsDir = birtProperties.getFontsPath();
+            if (StringUtils.isNotBlank(fontsDir)) {
+                if (fontsDir.startsWith("classpath:")) {
+                    // Handle classpath fonts (copy to temp dir or use File)
+                    // For simplicity, we'll support external directory first
+                } else {
+                    File fontFolder = new File(fontsDir);
+                    if (fontFolder.exists()) {
+                        engineConfig.setFontConfig(fontFolder.toURI().toURL()); // or use setBIRTFontPath if available
+                    }
+                }
+            }
+
+            // Load a custom fontsConfig.xml here
+            if (StringUtils.isNotBlank(birtProperties.getFontsConfigPath())) {
+                engineConfig.setFontConfig(
+                        new File(birtProperties.getFontsConfigPath()).toURI().toURL());
+            }
+
+            log.info("BIRT font configuration completed successfully");
+
+        } catch (MalformedURLException e) {
+            log.error("Failed to configure custom fonts", e);
         }
-      }
-
-      // Load a custom fontsConfig.xml here
-      if (StringUtils.isNotBlank(birtProperties.getFontsConfigPath())) {
-        engineConfig.setFontConfig(new File(birtProperties.getFontsConfigPath()).toURI().toURL());
-      }
-
-      log.info("BIRT font configuration completed successfully");
-
-    } catch (MalformedURLException e) {
-      log.error("Failed to configure custom fonts", e);
     }
-  }
 }

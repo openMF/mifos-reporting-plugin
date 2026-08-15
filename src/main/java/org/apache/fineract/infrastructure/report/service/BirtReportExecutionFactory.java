@@ -28,41 +28,41 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class BirtReportExecutionFactory {
 
-  private final IReportEngine reportEngine;
-  private final BirtReportLoader reportLoader;
-  private final ReportErrorHandler reportErrorHandler;
+    private final IReportEngine reportEngine;
+    private final BirtReportLoader reportLoader;
+    private final ReportErrorHandler reportErrorHandler;
 
-  /**
-   * Creates a per-execution runnable by copying the cached template design handle and opening a new
-   * runnable from that copied handle.
-   *
-   * @param reportName the base report name
-   * @param locale the requested locale, or {@code null}
-   * @return an execution-local runnable safe for tenant-specific datasource mutation
-   */
-  public IReportRunnable createExecutionRunnable(String reportName, Locale locale) {
-    try {
-      reportLoader.validateTemplateFreshness(reportName, locale);
+    /**
+     * Creates a per-execution runnable by copying the cached template design handle and opening a new
+     * runnable from that copied handle.
+     *
+     * @param reportName the base report name
+     * @param locale the requested locale, or {@code null}
+     * @return an execution-local runnable safe for tenant-specific datasource mutation
+     */
+    public IReportRunnable createExecutionRunnable(String reportName, Locale locale) {
+        try {
+            reportLoader.validateTemplateFreshness(reportName, locale);
 
-      IReportRunnable template = reportLoader.loadReport(reportName, locale);
-      ReportDesignHandle templateHandle = (ReportDesignHandle) template.getDesignHandle();
+            IReportRunnable template = reportLoader.loadReport(reportName, locale);
+            ReportDesignHandle templateHandle = (ReportDesignHandle) template.getDesignHandle();
 
-      IDesignElement copiedElement = templateHandle.copy();
-      ReportDesignHandle executionHandle = (ReportDesignHandle) copiedElement.getHandle(null);
+            IDesignElement copiedElement = templateHandle.copy();
+            ReportDesignHandle executionHandle = (ReportDesignHandle) copiedElement.getHandle(null);
 
-      executionHandle.setFileName(template.getReportName());
+            executionHandle.setFileName(template.getReportName());
 
-      IReportRunnable executionRunnable = reportEngine.openReportDesign(executionHandle);
-      log.debug("Created execution-local BIRT runnable for report: {}", reportName);
-      return executionRunnable;
-    } catch (PlatformDataIntegrityException e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("Failed to create execution-local BIRT runnable for report: {}", reportName, e);
-      throw reportErrorHandler.reportError(
-          "error.msg.reporting.report.execution.copy.failed",
-          "Failed to create execution-local report design: " + reportName,
-          e);
+            IReportRunnable executionRunnable = reportEngine.openReportDesign(executionHandle);
+            log.debug("Created execution-local BIRT runnable for report: {}", reportName);
+            return executionRunnable;
+        } catch (PlatformDataIntegrityException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to create execution-local BIRT runnable for report: {}", reportName, e);
+            throw reportErrorHandler.reportError(
+                    "error.msg.reporting.report.execution.copy.failed",
+                    "Failed to create execution-local report design: " + reportName,
+                    e);
+        }
     }
-  }
 }

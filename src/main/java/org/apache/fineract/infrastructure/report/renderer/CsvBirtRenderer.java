@@ -18,21 +18,21 @@ import org.springframework.stereotype.Component;
 @Component("CSV")
 public class CsvBirtRenderer extends AbstractBirtRenderer {
 
-  @Override
-  protected IRenderOption createRenderOption(OutputStream output, String reportName) {
-    RenderOption options = new RenderOption();
-    options.setOutputFormat("csv");
-    options.setOutputStream(output);
-    return options;
-  }
+    @Override
+    protected IRenderOption createRenderOption(OutputStream output, String reportName) {
+        RenderOption options = new RenderOption();
+        options.setOutputFormat("csv");
+        options.setOutputStream(output);
+        return options;
+    }
 
-  @Override
-  protected Response buildResponse(StreamingOutput stream, String reportName) {
-    return Response.ok(stream)
-        .type("text/csv")
-        .header(
-            "Content-Disposition",
-            "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".csv\"")
-        .build();
-  }
+    @Override
+    protected Response buildResponse(StreamingOutput stream, String reportName) {
+        return Response.ok(stream)
+                .type("text/csv")
+                .header(
+                        "Content-Disposition",
+                        "attachment; filename=\"" + FilenameUtils.sanitizeFilename(reportName) + ".csv\"")
+                .build();
+    }
 }

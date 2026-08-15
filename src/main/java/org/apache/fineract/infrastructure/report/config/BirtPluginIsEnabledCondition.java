@@ -11,8 +11,8 @@ import org.apache.fineract.infrastructure.core.config.FineractProperties;
 
 public class BirtPluginIsEnabledCondition extends PropertiesCondition {
 
-  @Override
-  protected boolean matches(FineractProperties properties) {
-    return true;
-  }
+    @Override
+    protected boolean matches(FineractProperties properties) {
+        return true;
+    }
 }

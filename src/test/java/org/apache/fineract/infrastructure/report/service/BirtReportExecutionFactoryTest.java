@@ -29,88 +29,94 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("BirtReportExecutionFactory Tests")
 class BirtReportExecutionFactoryTest {
 
-  @Mock private IReportEngine reportEngine;
-  @Mock private BirtReportLoader reportLoader;
-  @Mock private ReportErrorHandler reportErrorHandler;
+    @Mock
+    private IReportEngine reportEngine;
 
-  @InjectMocks private BirtReportExecutionFactory executionFactory;
+    @Mock
+    private BirtReportLoader reportLoader;
 
-  @Test
-  @DisplayName("Should create execution runnable with independent design handle")
-  void shouldCreateExecutionRunnableWithIndependentDesignHandle() throws Exception {
-    IReportRunnable templateRunnable = mock(IReportRunnable.class);
-    IReportRunnable executionRunnable = mock(IReportRunnable.class);
-    ReportDesignHandle templateHandle = mock(ReportDesignHandle.class);
-    ReportDesignHandle executionHandle = mock(ReportDesignHandle.class);
-    IDesignElement copiedElement = mock(IDesignElement.class);
+    @Mock
+    private ReportErrorHandler reportErrorHandler;
 
-    when(reportLoader.loadReport("sample", Locale.ENGLISH)).thenReturn(templateRunnable);
-    when(templateRunnable.getDesignHandle()).thenReturn(templateHandle);
-    when(templateRunnable.getReportName()).thenReturn("sample.rptdesign");
-    when(templateHandle.copy()).thenReturn(copiedElement);
-    when(copiedElement.getHandle(null)).thenReturn(executionHandle);
-    when(reportEngine.openReportDesign(executionHandle)).thenReturn(executionRunnable);
-    when(executionRunnable.getDesignHandle()).thenReturn(executionHandle);
+    @InjectMocks
+    private BirtReportExecutionFactory executionFactory;
 
-    IReportRunnable result = executionFactory.createExecutionRunnable("sample", Locale.ENGLISH);
+    @Test
+    @DisplayName("Should create execution runnable with independent design handle")
+    void shouldCreateExecutionRunnableWithIndependentDesignHandle() throws Exception {
+        IReportRunnable templateRunnable = mock(IReportRunnable.class);
+        IReportRunnable executionRunnable = mock(IReportRunnable.class);
+        ReportDesignHandle templateHandle = mock(ReportDesignHandle.class);
+        ReportDesignHandle executionHandle = mock(ReportDesignHandle.class);
+        IDesignElement copiedElement = mock(IDesignElement.class);
 
-    assertSame(executionRunnable, result);
-    assertNotSame(templateHandle, result.getDesignHandle());
-    verify(reportEngine).openReportDesign(executionHandle);
-  }
+        when(reportLoader.loadReport("sample", Locale.ENGLISH)).thenReturn(templateRunnable);
+        when(templateRunnable.getDesignHandle()).thenReturn(templateHandle);
+        when(templateRunnable.getReportName()).thenReturn("sample.rptdesign");
+        when(templateHandle.copy()).thenReturn(copiedElement);
+        when(copiedElement.getHandle(null)).thenReturn(executionHandle);
+        when(reportEngine.openReportDesign(executionHandle)).thenReturn(executionRunnable);
+        when(executionRunnable.getDesignHandle()).thenReturn(executionHandle);
 
-  @Test
-  @DisplayName("Should not mutate cached template when execution copy is modified")
-  void shouldNotMutateCachedTemplateWhenExecutionCopyIsModified() throws Exception {
-    IReportRunnable templateRunnable = mock(IReportRunnable.class);
-    IReportRunnable executionRunnable = mock(IReportRunnable.class);
-    ReportDesignHandle templateHandle = mock(ReportDesignHandle.class);
-    ReportDesignHandle executionHandle = mock(ReportDesignHandle.class);
-    IDesignElement copiedElement = mock(IDesignElement.class);
+        IReportRunnable result = executionFactory.createExecutionRunnable("sample", Locale.ENGLISH);
 
-    when(reportLoader.loadReport("sample", Locale.ENGLISH)).thenReturn(templateRunnable);
-    when(templateRunnable.getDesignHandle()).thenReturn(templateHandle);
-    when(templateRunnable.getReportName()).thenReturn("sample.rptdesign");
-    when(templateHandle.copy()).thenReturn(copiedElement);
-    when(copiedElement.getHandle(null)).thenReturn(executionHandle);
-    when(reportEngine.openReportDesign(executionHandle)).thenReturn(executionRunnable);
+        assertSame(executionRunnable, result);
+        assertNotSame(templateHandle, result.getDesignHandle());
+        verify(reportEngine).openReportDesign(executionHandle);
+    }
 
-    executionFactory.createExecutionRunnable("sample", Locale.ENGLISH);
+    @Test
+    @DisplayName("Should not mutate cached template when execution copy is modified")
+    void shouldNotMutateCachedTemplateWhenExecutionCopyIsModified() throws Exception {
+        IReportRunnable templateRunnable = mock(IReportRunnable.class);
+        IReportRunnable executionRunnable = mock(IReportRunnable.class);
+        ReportDesignHandle templateHandle = mock(ReportDesignHandle.class);
+        ReportDesignHandle executionHandle = mock(ReportDesignHandle.class);
+        IDesignElement copiedElement = mock(IDesignElement.class);
 
-    verify(executionHandle).setFileName("sample.rptdesign");
-    verify(templateHandle, never()).setFileName("sample.rptdesign");
-    verify(reportEngine, never()).openReportDesign(templateHandle);
-  }
+        when(reportLoader.loadReport("sample", Locale.ENGLISH)).thenReturn(templateRunnable);
+        when(templateRunnable.getDesignHandle()).thenReturn(templateHandle);
+        when(templateRunnable.getReportName()).thenReturn("sample.rptdesign");
+        when(templateHandle.copy()).thenReturn(copiedElement);
+        when(copiedElement.getHandle(null)).thenReturn(executionHandle);
+        when(reportEngine.openReportDesign(executionHandle)).thenReturn(executionRunnable);
 
-  @Test
-  @DisplayName("Should create independent execution copies")
-  void shouldCreateIndependentExecutionCopies() throws Exception {
-    IReportRunnable templateRunnable = mock(IReportRunnable.class);
-    IReportRunnable firstExecutionRunnable = mock(IReportRunnable.class);
-    IReportRunnable secondExecutionRunnable = mock(IReportRunnable.class);
-    ReportDesignHandle templateHandle = mock(ReportDesignHandle.class);
-    ReportDesignHandle firstExecutionHandle = mock(ReportDesignHandle.class);
-    ReportDesignHandle secondExecutionHandle = mock(ReportDesignHandle.class);
-    IDesignElement firstCopiedElement = mock(IDesignElement.class);
-    IDesignElement secondCopiedElement = mock(IDesignElement.class);
+        executionFactory.createExecutionRunnable("sample", Locale.ENGLISH);
 
-    when(reportLoader.loadReport("sample", Locale.ENGLISH)).thenReturn(templateRunnable);
-    when(templateRunnable.getDesignHandle()).thenReturn(templateHandle);
-    when(templateRunnable.getReportName()).thenReturn("sample.rptdesign");
-    when(templateHandle.copy()).thenReturn(firstCopiedElement, secondCopiedElement);
-    when(firstCopiedElement.getHandle(null)).thenReturn(firstExecutionHandle);
-    when(secondCopiedElement.getHandle(null)).thenReturn(secondExecutionHandle);
-    when(reportEngine.openReportDesign(firstExecutionHandle)).thenReturn(firstExecutionRunnable);
-    when(reportEngine.openReportDesign(secondExecutionHandle)).thenReturn(secondExecutionRunnable);
-    when(firstExecutionRunnable.getDesignHandle()).thenReturn(firstExecutionHandle);
-    when(secondExecutionRunnable.getDesignHandle()).thenReturn(secondExecutionHandle);
+        verify(executionHandle).setFileName("sample.rptdesign");
+        verify(templateHandle, never()).setFileName("sample.rptdesign");
+        verify(reportEngine, never()).openReportDesign(templateHandle);
+    }
 
-    IReportRunnable first = executionFactory.createExecutionRunnable("sample", Locale.ENGLISH);
-    IReportRunnable second = executionFactory.createExecutionRunnable("sample", Locale.ENGLISH);
+    @Test
+    @DisplayName("Should create independent execution copies")
+    void shouldCreateIndependentExecutionCopies() throws Exception {
+        IReportRunnable templateRunnable = mock(IReportRunnable.class);
+        IReportRunnable firstExecutionRunnable = mock(IReportRunnable.class);
+        IReportRunnable secondExecutionRunnable = mock(IReportRunnable.class);
+        ReportDesignHandle templateHandle = mock(ReportDesignHandle.class);
+        ReportDesignHandle firstExecutionHandle = mock(ReportDesignHandle.class);
+        ReportDesignHandle secondExecutionHandle = mock(ReportDesignHandle.class);
+        IDesignElement firstCopiedElement = mock(IDesignElement.class);
+        IDesignElement secondCopiedElement = mock(IDesignElement.class);
 
-    assertNotSame(first, second);
-    assertNotSame(first.getDesignHandle(), second.getDesignHandle());
-    assertNotSame(templateHandle, first.getDesignHandle());
-    assertNotSame(templateHandle, second.getDesignHandle());
-  }
+        when(reportLoader.loadReport("sample", Locale.ENGLISH)).thenReturn(templateRunnable);
+        when(templateRunnable.getDesignHandle()).thenReturn(templateHandle);
+        when(templateRunnable.getReportName()).thenReturn("sample.rptdesign");
+        when(templateHandle.copy()).thenReturn(firstCopiedElement, secondCopiedElement);
+        when(firstCopiedElement.getHandle(null)).thenReturn(firstExecutionHandle);
+        when(secondCopiedElement.getHandle(null)).thenReturn(secondExecutionHandle);
+        when(reportEngine.openReportDesign(firstExecutionHandle)).thenReturn(firstExecutionRunnable);
+        when(reportEngine.openReportDesign(secondExecutionHandle)).thenReturn(secondExecutionRunnable);
+        when(firstExecutionRunnable.getDesignHandle()).thenReturn(firstExecutionHandle);
+        when(secondExecutionRunnable.getDesignHandle()).thenReturn(secondExecutionHandle);
+
+        IReportRunnable first = executionFactory.createExecutionRunnable("sample", Locale.ENGLISH);
+        IReportRunnable second = executionFactory.createExecutionRunnable("sample", Locale.ENGLISH);
+
+        assertNotSame(first, second);
+        assertNotSame(first.getDesignHandle(), second.getDesignHandle());
+        assertNotSame(templateHandle, first.getDesignHandle());
+        assertNotSame(templateHandle, second.getDesignHandle());
+    }
 }

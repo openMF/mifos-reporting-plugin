@@ -7,11 +7,11 @@
 package org.apache.fineract.infrastructure.report.migration.parser;
 
 public class PentahoMigrationException extends RuntimeException {
-  public PentahoMigrationException(String message) {
-    super(message);
-  }
+    public PentahoMigrationException(String message) {
+        super(message);
+    }
 
-  public PentahoMigrationException(String message, Throwable cause) {
-    super(message, cause);
-  }
+    public PentahoMigrationException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

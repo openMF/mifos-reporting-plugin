@@ -16,9 +16,9 @@ import java.util.List;
  */
 public record TranslatedQuery(String sql, List<String> parameterNames) {
 
-  /** Compact constructor ensuring defensive null-safety and list immutability. */
-  public TranslatedQuery {
-    sql = (sql == null) ? "" : sql;
-    parameterNames = (parameterNames == null) ? List.of() : List.copyOf(parameterNames);
-  }
+    /** Compact constructor ensuring defensive null-safety and list immutability. */
+    public TranslatedQuery {
+        sql = (sql == null) ? "" : sql;
+        parameterNames = (parameterNames == null) ? List.of() : List.copyOf(parameterNames);
+    }
 }

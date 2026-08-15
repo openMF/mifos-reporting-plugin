@@ -10,7 +10,7 @@ import java.util.List;
 
 /** The Intermediate Representation (IR) of a complete Pentaho Report. */
 public record PentahoReportModel(
-    String reportName,
-    List<PentahoSqlDataset> datasets,
-    List<PentahoParameter> parameters,
-    List<PentahoReportModel> subreports) {}
+        String reportName,
+        List<PentahoSqlDataset> datasets,
+        List<PentahoParameter> parameters,
+        List<PentahoReportModel> subreports) {}

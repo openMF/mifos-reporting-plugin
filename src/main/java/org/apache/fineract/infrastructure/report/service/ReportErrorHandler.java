@@ -16,16 +16,14 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ReportErrorHandler {
 
-  private final MessageSource messageSource;
+    private final MessageSource messageSource;
 
-  public PlatformDataIntegrityException reportError(
-      String errorCode, String defaultMessage, Throwable cause) {
-    String message =
-        messageSource.getMessage(errorCode, null, defaultMessage, LocaleContextHolder.getLocale());
-    return new PlatformDataIntegrityException(errorCode, message, cause);
-  }
+    public PlatformDataIntegrityException reportError(String errorCode, String defaultMessage, Throwable cause) {
+        String message = messageSource.getMessage(errorCode, null, defaultMessage, LocaleContextHolder.getLocale());
+        return new PlatformDataIntegrityException(errorCode, message, cause);
+    }
 
-  public PlatformDataIntegrityException reportError(String errorCode, String defaultMessage) {
-    return reportError(errorCode, defaultMessage, null);
-  }
+    public PlatformDataIntegrityException reportError(String errorCode, String defaultMessage) {
+        return reportError(errorCode, defaultMessage, null);
+    }
 }
