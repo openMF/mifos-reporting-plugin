@@ -51,7 +51,31 @@ public class BirtEngineConfiguration {
   @PostConstruct
   public void startBirtEngine() {
     try {
-      logger.info("Initializing Eclipse BIRT Platform...");
+      logger.info("Initializing Mifos X Reporting Plugin...  ");
+      logger.info("                                          ");      
+      logger.info("                                          ");      
+      logger.info("        ..................                ");
+      logger.info("      ....:-=+*********++=:.              ");
+      logger.info("     . ....=************+=.......         ");
+      logger.info("   ...-....=**********+-.....:=++-.       ");
+      logger.info("  ..-++:...:*********:.....-+*****+:..    ");
+      logger.info(" ..=***-....+******-.....-+*********-.    ");
+      logger.info(" .=****+....-****=.....-+************-..  ");
+      logger.info(" -******=....=*+:....:+***************:.  ");
+      logger.info(".+*******:....:.....+*****************+.  ");
+      logger.info(".*********:.......-********************:. ");
+      logger.info(".**********:.....=*********************:. ");
+      logger.info(".**********......-+********************:. ");
+      logger.info("=*******+.........=*******************:.  ");
+      logger.info("..+*****+....:=:.....+****************:.  ");
+      logger.info("...+****:....+**=:.....=*************-.   ");
+      logger.info(". ..=**-....=*****=......:+********+-..   ");
+      logger.info("    .:=....-********+:......:=+***=...    ");
+      logger.info("     ......************=:............     ");
+      logger.info("       ...:=+************+=:......        ");
+      logger.info("         ....:-===+++==--:......          ");
+      logger.info("                                          ");
+      logger.info("                                          ");
 
       EngineConfig config = new EngineConfig();
       // Redirect BIRT internal logging to prevent console spam.
@@ -68,10 +92,20 @@ public class BirtEngineConfiguration {
 
       // Create the Engine instance
       reportEngine = factory.createReportEngine(config);
-      logger.info("Eclipse BIRT Platform started successfully. Engine is ready.");
+      logger.info("******************************************");
+      logger.info("                                          ");
+      logger.info("Mifos X Reporting Plugin started successfully. ");
+      logger.info("Mifos X Reporting Plugin is ready.");
+      logger.info("                                          ");
+      logger.info("******************************************");      
 
     } catch (BirtException e) {
-      logger.error("Failed to start Eclipse BIRT Engine. Reports will not function.", e);
+      logger.error("******************************************");
+      logger.error("                                          ");
+      logger.error("Failed to start Mifos X Reporting Plugin. ");
+      logger.error("Reports will not function.", e);
+      logger.error("                                          ");
+      logger.error("******************************************");      
       // We consciously do NOT throw a RuntimeException here.
       // As, if BIRT fails, Fineract should still start up for other operations.
     }
@@ -89,11 +123,11 @@ public class BirtEngineConfiguration {
   @PreDestroy
   public void stopBirtEngine() {
     if (reportEngine != null) {
-      logger.info("Destroying BIRT Report Engine...");
+      logger.info("Destroying Mifos X Reporting Plugin...");
       reportEngine.destroy();
     }
-    logger.info("Shutting down BIRT Platform...");
+    logger.info("Shutting down Mifos X Reporting Plugin...");
     Platform.shutdown();
-    logger.info("BIRT Platform shutdown complete.");
+    logger.info("Mifos X Reporting Plugin shutdown complete.");
   }
 }
