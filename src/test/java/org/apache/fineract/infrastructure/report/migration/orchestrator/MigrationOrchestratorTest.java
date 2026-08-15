@@ -44,7 +44,7 @@ class MigrationOrchestratorTest {
     }
 
     @Test
-    @DisplayName("Should successfully migrate a valid nested .prpt archive to a .rptdesign file")
+    @DisplayName("Should successfully migrate a nested .prpt archive and output a flattened .rptdesign file")
     void shouldMigrateValidNestedReport(@TempDir Path tempSource, @TempDir Path tempTarget) throws Exception {
         // Arrange: Create a nested directory structure and a mock PRPT zip file
         Path nestedDir = Files.createDirectories(tempSource.resolve("categoryA").resolve("legacy"));
@@ -72,9 +72,13 @@ class MigrationOrchestratorTest {
         // Assert
         assertThat(success).isTrue();
 
-        // Verify the output exists in the correct nested target structure
-        Path expectedOutput = tempTarget.resolve("categoryA").resolve("legacy").resolve("mock_report.rptdesign");
-        assertThat(Files.exists(expectedOutput)).isTrue();
+        // Verify the output exists in the flattened target structure (Root of target folder with safe
+        // name)
+        Path expectedOutput = tempTarget.resolve("categoryA_legacy_mock_report.rptdesign");
+
+        assertThat(Files.exists(expectedOutput))
+                .withFailMessage("Expected collision-safe flattened output file to exist at %s", expectedOutput)
+                .isTrue();
 
         // Verify basic BIRT XML export occurred
         String xmlContent = Files.readString(expectedOutput);

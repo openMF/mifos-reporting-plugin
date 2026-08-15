@@ -9,13 +9,12 @@ package org.apache.fineract.infrastructure.report.config;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.logging.Level;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.birt.core.exception.BirtException;
 import org.eclipse.birt.core.framework.Platform;
 import org.eclipse.birt.report.engine.api.EngineConfig;
 import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportEngineFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.context.annotation.Bean;
@@ -27,10 +26,10 @@ import org.springframework.context.annotation.Configuration;
  * <p>This class ensures the Platform is started exactly once when the application boots and shut
  * down gracefully when the application stops, preventing memory leaks.
  */
+@Slf4j
 @Configuration
 public class BirtEngineConfiguration {
 
-    private static final Logger logger = LoggerFactory.getLogger(BirtEngineConfiguration.class);
     private IReportEngine reportEngine;
 
     @Bean
@@ -51,37 +50,37 @@ public class BirtEngineConfiguration {
     @PostConstruct
     public void startBirtEngine() {
         try {
-            logger.info("******************************************");
-            logger.info("Initializing Mifos X Reporting Plugin...  ");
-            logger.info("******************************************");
-            logger.info("                                          ");
-            logger.info("                                          ");
-            logger.info("         .................                ");
-            logger.info("      ....:-=+*********++=:.              ");
-            logger.info("     . ....=************+=.......         ");
-            logger.info("   ...-....=**********+-.....:=++-.       ");
-            logger.info("  ..-++:...:*********:.....-+*****+:..    ");
-            logger.info(" ..=***-....+******-.....-+*********-.    ");
-            logger.info(" .=****+....-****=.....-+************-..  ");
-            logger.info(" -******=....=*+:....:+***************:.  ");
-            logger.info(".+*******:....:.....+*****************+.  ");
-            logger.info(".*********:.......-********************:. ");
-            logger.info(".**********:.....=*********************:. ");
-            logger.info(".**********......-+********************:. ");
-            logger.info("=*******+.........=*******************:.  ");
-            logger.info("..+*****+....:=:.....+****************:.  ");
-            logger.info("...+****:....+**=:.....=*************-.   ");
-            logger.info(". ..=**-....=*****=......:+********+-..   ");
-            logger.info("    .:=....-********+:......:=+***=...    ");
-            logger.info("     ......************=:............     ");
-            logger.info("       ...:=+************+=:......        ");
-            logger.info("         ....:-===+++==--:......          ");
-            logger.info("                                          ");
-            logger.info("                                          ");
-            logger.info("                                          ");
-            logger.info("(c) 2011-2026 Mifos X https://mifos.org   ");
-            logger.info("                                          ");
-            logger.info("******************************************");
+            log.info("******************************************");
+            log.info("Initializing Mifos X Reporting Plugin...  ");
+            log.info("******************************************");
+            log.info("                                          ");
+            log.info("                                          ");
+            log.info("         .................                ");
+            log.info("      ....:-=+*********++=:.              ");
+            log.info("     . ....=************+=.......         ");
+            log.info("   ...-....=**********+-.....:=++-.       ");
+            log.info("  ..-++:...:*********:.....-+*****+:..    ");
+            log.info(" ..=***-....+******-.....-+*********-.    ");
+            log.info(" .=****+....-****=.....-+************-..  ");
+            log.info(" -******=....=*+:....:+***************:.  ");
+            log.info(".+*******:....:.....+*****************+.  ");
+            log.info(".*********:.......-********************:. ");
+            log.info(".**********:.....=*********************:. ");
+            log.info(".**********......-+********************:. ");
+            log.info("=*******+.........=*******************:.  ");
+            log.info("..+*****+....:=:.....+****************:.  ");
+            log.info("...+****:....+**=:.....=*************-.   ");
+            log.info(". ..=**-....=*****=......:+********+-..   ");
+            log.info("    .:=....-********+:......:=+***=...    ");
+            log.info("     ......************=:............     ");
+            log.info("       ...:=+************+=:......        ");
+            log.info("         ....:-===+++==--:......          ");
+            log.info("                                          ");
+            log.info("                                          ");
+            log.info("                                          ");
+            log.info("(c) 2011-2026 Mifos X https://mifos.org   ");
+            log.info("                                          ");
+            log.info("******************************************");
 
             EngineConfig config = new EngineConfig();
             // Redirect BIRT internal logging to prevent console spam.
@@ -92,24 +91,24 @@ public class BirtEngineConfiguration {
 
             // Report Engine Factory
             IReportEngineFactory factory = (IReportEngineFactory)
-                    Platform.createFactoryObject(IReportEngineFactory.EXTENSION_REPORT_ENGINE_FACTORY); //
+                    Platform.createFactoryObject(IReportEngineFactory.EXTENSION_REPORT_ENGINE_FACTORY);
 
             // Create the Engine instance
             reportEngine = factory.createReportEngine(config);
-            logger.info("******************************************");
-            logger.info("                                          ");
-            logger.info("Mifos X Reporting Plugin started successfully. ");
-            logger.info("Mifos X Reporting Plugin is ready.");
-            logger.info("                                          ");
-            logger.info("******************************************");
+            log.info("******************************************");
+            log.info("                                          ");
+            log.info("Mifos X Reporting Plugin started successfully. ");
+            log.info("Mifos X Reporting Plugin is ready.");
+            log.info("                                          ");
+            log.info("******************************************");
 
         } catch (BirtException e) {
-            logger.error("******************************************");
-            logger.error("                                          ");
-            logger.error("Failed to start Mifos X Reporting Plugin. ");
-            logger.error("Reports will not function.", e);
-            logger.error("                                          ");
-            logger.error("******************************************");
+            log.error("******************************************");
+            log.error("                                          ");
+            log.error("Failed to start Mifos X Reporting Plugin. ");
+            log.error("Reports will not function.", e);
+            log.error("                                          ");
+            log.error("******************************************");
             // We consciously do NOT throw a RuntimeException here.
             // As, if BIRT fails, Fineract should still start up for other operations.
         }
@@ -127,11 +126,11 @@ public class BirtEngineConfiguration {
     @PreDestroy
     public void stopBirtEngine() {
         if (reportEngine != null) {
-            logger.info("Destroying Mifos X Reporting Plugin...");
+            log.info("Destroying Mifos X Reporting Plugin...");
             reportEngine.destroy();
         }
-        logger.info("Shutting down Mifos X Reporting Plugin...");
+        log.info("Shutting down Mifos X Reporting Plugin...");
         Platform.shutdown();
-        logger.info("Mifos X Reporting Plugin shutdown complete.");
+        log.info("Mifos X Reporting Plugin shutdown complete.");
     }
 }
