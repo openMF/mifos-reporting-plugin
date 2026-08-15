@@ -51,10 +51,12 @@ public class BirtEngineConfiguration {
   @PostConstruct
   public void startBirtEngine() {
     try {
+      logger.info("******************************************");  
       logger.info("Initializing Mifos X Reporting Plugin...  ");
+      logger.info("******************************************");
       logger.info("                                          ");      
       logger.info("                                          ");      
-      logger.info("        ..................                ");
+      logger.info("         .................                ");
       logger.info("      ....:-=+*********++=:.              ");
       logger.info("     . ....=************+=.......         ");
       logger.info("   ...-....=**********+-.....:=++-.       ");
@@ -76,6 +78,11 @@ public class BirtEngineConfiguration {
       logger.info("         ....:-===+++==--:......          ");
       logger.info("                                          ");
       logger.info("                                          ");
+      logger.info("                                          ");
+      logger.info("(c) 2011-2026 Mifos X https://mifos.org   ");
+      logger.info("                                          ");
+      logger.info("******************************************");
+      
 
       EngineConfig config = new EngineConfig();
       // Redirect BIRT internal logging to prevent console spam.
