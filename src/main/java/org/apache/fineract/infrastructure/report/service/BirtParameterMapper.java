@@ -9,6 +9,8 @@ package org.apache.fineract.infrastructure.report.service;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -22,7 +24,11 @@ import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IRunTask;
 import org.springframework.stereotype.Component;
 
-/** Handles parameter mapping for BIRT reports. */
+/**
+ * Handles parameter mapping and pre-execution validation for BIRT reports.
+ * Collects ALL missing required parameters and throws a single, detailed
+ * PlatformDataIntegrityException so the API returns useful information.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -31,27 +37,30 @@ public class BirtParameterMapper {
     private final ReportErrorHandler reportErrorHandler;
     private final IReportEngine reportEngine;
 
-    // Ignored here because they are injected separately by BirtContextInjector
+    // Injected separately by BirtContextInjector – never required from the client
     private static final Set<String> SERVER_MANAGED_PARAMETERS = Set.of("userhierarchy", "userid");
 
     /**
-     * Applies report parameters to the BIRT run task. Skips server-managed parameters (like userid)
-     * and maps user-provided parameters to their strictly typed BIRT equivalents.
+     * Validates and applies report parameters to the BIRT run task.
      *
-     * @param task The BIRT run task to configure.
-     * @param reportParams The map of raw string parameters from the API request.
-     * @throws PlatformDataIntegrityException if a required parameter is missing or invalid.
+     * @param task          BIRT run task
+     * @param reportParams  map of parameters after the "R_" prefix has been stripped
+     *                      (e.g. "startDate", "branch", …)
+     * @throws PlatformDataIntegrityException when one or more required parameters are missing
+     *                                        or have an invalid type/value
      */
     public void applyParameters(IRunTask task, Map<String, String> reportParams) {
         if (task == null) {
             throw reportErrorHandler.reportError("error.msg.reporting.error", "Task cannot be null");
         }
 
-        log.debug("Applying parameters to BIRT report task");
+        log.debug("Validating and applying parameters to BIRT report task");
 
         IGetParameterDefinitionTask paramTask = null;
         try {
             paramTask = reportEngine.createGetParameterDefinitionTask(task.getReportRunnable());
+
+            List<String> missingRequired = new ArrayList<>();
 
             for (Object paramObj : paramTask.getParameterDefns(false)) {
                 IParameterDefn paramDef = (IParameterDefn) paramObj;
@@ -61,16 +70,32 @@ public class BirtParameterMapper {
                     continue;
                 }
 
-                String paramValue = reportParams.get(paramName);
+                String paramValue = reportParams != null ? reportParams.get(paramName) : null;
 
+                // Only enforce parameters that the report designer marked as required
+                if (paramDef.isRequired() && StringUtils.isBlank(paramValue)) {
+                    missingRequired.add(paramName);
+                    continue; // collect all, do not fail early
+                }
+
+                // Optional parameter with no value → leave BIRT default / null
                 if (StringUtils.isBlank(paramValue)) {
-                    throw reportErrorHandler.reportError(
-                            "error.msg.reporting.missing.parameter", "Required parameter not provided: " + paramName);
+                    continue;
                 }
 
                 setTypedParameter(task, paramDef, paramName, paramValue);
             }
 
+            if (!missingRequired.isEmpty()) {
+                String details = String.join(", ", missingRequired);
+                // Use a dedicated error code so clients / i18n can react specifically
+                throw reportErrorHandler.reportError(
+                        "error.msg.reporting.missing.parameter", "Required parameter(s) not provided: " + details);
+            }
+
+        } catch (PlatformDataIntegrityException e) {
+            // Re-throw our own validation exceptions unchanged so the message stays specific
+            throw e;
         } catch (Exception e) {
             log.error("Error while processing BIRT parameter definitions", e);
             throw reportErrorHandler.reportError("error.msg.reporting.error", "Failed to process report parameters", e);
@@ -84,23 +109,13 @@ public class BirtParameterMapper {
     private void setTypedParameter(IRunTask task, IParameterDefn paramDef, String name, String value) {
         try {
             switch (paramDef.getDataType()) {
-                case IParameterDefn.TYPE_INTEGER:
-                    task.setParameterValue(name, Integer.parseInt(value));
-                    break;
-                case IParameterDefn.TYPE_FLOAT:
-                case IParameterDefn.TYPE_DECIMAL:
+                case IParameterDefn.TYPE_INTEGER -> task.setParameterValue(name, Integer.parseInt(value));
+                case IParameterDefn.TYPE_FLOAT, IParameterDefn.TYPE_DECIMAL ->
                     task.setParameterValue(name, Double.parseDouble(value));
-                    break;
-                case IParameterDefn.TYPE_DATE:
-                case IParameterDefn.TYPE_DATE_TIME:
+                case IParameterDefn.TYPE_DATE, IParameterDefn.TYPE_DATE_TIME ->
                     task.setParameterValue(name, parseDate(value));
-                    break;
-                case IParameterDefn.TYPE_BOOLEAN:
-                    task.setParameterValue(name, Boolean.parseBoolean(value));
-                    break;
-                default:
-                    task.setParameterValue(name, value);
-                    break;
+                case IParameterDefn.TYPE_BOOLEAN -> task.setParameterValue(name, Boolean.parseBoolean(value));
+                default -> task.setParameterValue(name, value);
             }
             log.trace("Set parameter {} = {}", name, value);
         } catch (Exception e) {
@@ -109,8 +124,6 @@ public class BirtParameterMapper {
                     "error.msg.reporting.invalid.parameter", "Invalid value for parameter '" + name + "': " + value, e);
         }
     }
-
-    // --- PRIVATE HELPER METHODS BELOW ---
 
     private Date parseDate(String value) {
         try {

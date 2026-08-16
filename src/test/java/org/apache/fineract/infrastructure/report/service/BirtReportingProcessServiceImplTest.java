@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -142,13 +143,13 @@ class BirtReportingProcessServiceImplTest {
                 .when(() -> DataSourceUtils.releaseConnection(any(Connection.class), any(DataSource.class)))
                 .thenAnswer(i -> null);
 
-        // Mock Tenant Context (Mirroring the Pentaho Plugin requirement)
+        // Mock Tenant Context
         FineractPlatformTenant tenant = mock(FineractPlatformTenant.class);
         FineractPlatformTenantConnection tenantConnection = mock(FineractPlatformTenantConnection.class);
         lenient().when(tenant.getConnection()).thenReturn(tenantConnection);
         lenient().when(tenant.getTenantIdentifier()).thenReturn("default");
         lenient().when(tenantConnection.getSchemaUsername()).thenReturn("tenant_user");
-        lenient().when(tenantConnection.getSchemaPassword()).thenReturn("encrypted_pass   ");
+        lenient().when(tenantConnection.getSchemaPassword()).thenReturn("encrypted_pass ");
         lenient().when(databasePasswordEncryptor.decrypt("encrypted_pass")).thenReturn("decrypted_pass");
 
         mockedThreadLocalContextUtil = mockStatic(ThreadLocalContextUtil.class);
@@ -223,10 +224,9 @@ class BirtReportingProcessServiceImplTest {
         IReportRunnable design = mock(IReportRunnable.class);
         ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
         IRunTask task = mock(IRunTask.class);
-
         HashMap<String, Object> appContext = new HashMap<>();
-        when(task.getAppContext()).thenReturn(appContext);
 
+        when(task.getAppContext()).thenReturn(appContext);
         when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
         when(design.getDesignHandle()).thenReturn(designHandle);
         when(reportEngine.createRunTask(design)).thenReturn(task);
@@ -260,7 +260,7 @@ class BirtReportingProcessServiceImplTest {
     }
 
     @Test
-    @DisplayName("Should throw when report file is not found")
+    @DisplayName("Should preserve specific exception when report file is not found")
     void shouldThrowWhenReportFileNotFound() {
         when(reportExecutionFactory.createExecutionRunnable(anyString(), any()))
                 .thenThrow(
@@ -269,7 +269,37 @@ class BirtReportingProcessServiceImplTest {
         PlatformDataIntegrityException ex = assertThrows(
                 PlatformDataIntegrityException.class, () -> service.processRequest("missing", queryParams("PDF")));
 
-        assertEquals("error.msg.reporting.error", ex.getGlobalisationMessageCode());
+        // After the fix we must NOT re-wrap PlatformDataIntegrityException
+        assertEquals("error.msg.reporting.report.not.found", ex.getGlobalisationMessageCode());
+        assertTrue(ex.getDefaultUserMessage().contains("Report not found"));
+    }
+
+    @Test
+    @DisplayName("Should propagate missing required parameter exception without re-wrapping")
+    void shouldPropagateMissingParameterException() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
+        HashMap<String, Object> appContext = new HashMap<>();
+
+        when(task.getAppContext()).thenReturn(appContext);
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+
+        // Simulate the improved BirtParameterMapper throwing a specific missing-parameter exception
+        doThrow(new PlatformDataIntegrityException(
+                        "error.msg.reporting.missing.parameter", "Required parameter(s) not provided: branch"))
+                .when(parameterMapper)
+                .applyParameters(any(), any());
+
+        PlatformDataIntegrityException ex = assertThrows(
+                PlatformDataIntegrityException.class,
+                () -> service.processRequest("Active_Loans_Details", queryParams("PDF")));
+
+        // Critical: the specific code and message must reach the client
+        assertEquals("error.msg.reporting.missing.parameter", ex.getGlobalisationMessageCode());
+        assertTrue(ex.getDefaultUserMessage().contains("branch"));
     }
 
     @Test
@@ -278,10 +308,9 @@ class BirtReportingProcessServiceImplTest {
         IReportRunnable design = mock(IReportRunnable.class);
         ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
         IRunTask task = mock(IRunTask.class);
-
         HashMap<String, Object> appContext = new HashMap<>();
-        when(task.getAppContext()).thenReturn(appContext);
 
+        when(task.getAppContext()).thenReturn(appContext);
         when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
         when(design.getDesignHandle()).thenReturn(designHandle);
         when(reportEngine.createRunTask(design)).thenReturn(task);
@@ -290,7 +319,7 @@ class BirtReportingProcessServiceImplTest {
 
         service.processRequest("sample", queryParams("PDF"));
 
-        // Verify the new setConnectionDetail logic successfully populated the appContext
+        // Verify the setConnectionDetail logic successfully populated the appContext
         assertEquals("org.postgresql.Driver", appContext.get("OdaJDBCDriverClass"));
         assertEquals("jdbc:postgresql://localhost:5432/fineract_tenant", appContext.get("OdaJDBCDriverUrl"));
         assertEquals("tenant_user", appContext.get("OdaJDBCDriverUser"));
@@ -313,10 +342,9 @@ class BirtReportingProcessServiceImplTest {
         IReportRunnable design = mock(IReportRunnable.class);
         ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
         IRunTask task = mock(IRunTask.class);
-
         HashMap<String, Object> appContext = new HashMap<>();
-        when(task.getAppContext()).thenReturn(appContext);
 
+        when(task.getAppContext()).thenReturn(appContext);
         when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
         when(design.getDesignHandle()).thenReturn(designHandle);
         when(reportEngine.createRunTask(design)).thenReturn(task);
@@ -334,19 +362,16 @@ class BirtReportingProcessServiceImplTest {
         IReportRunnable design = mock(IReportRunnable.class);
         ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
         IRunTask task = mock(IRunTask.class);
-
         HashMap<String, Object> appContext = new HashMap<>();
-        when(task.getAppContext()).thenReturn(appContext);
 
+        when(task.getAppContext()).thenReturn(appContext);
         when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
         when(design.getDesignHandle()).thenReturn(designHandle);
         when(reportEngine.createRunTask(design)).thenReturn(task);
-
         when(htmlRenderer.render(eq(reportEngine), anyString(), anyString()))
                 .thenReturn(Response.ok().type("text/html").build());
 
         MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
-
         Response response = service.processRequest("sample", params);
 
         assertEquals(200, response.getStatus());
@@ -372,14 +397,12 @@ class BirtReportingProcessServiceImplTest {
         IReportRunnable design = mock(IReportRunnable.class);
         ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
         IRunTask task = mock(IRunTask.class);
-
         HashMap<String, Object> appContext = new HashMap<>();
-        when(task.getAppContext()).thenReturn(appContext);
 
+        when(task.getAppContext()).thenReturn(appContext);
         when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
         when(design.getDesignHandle()).thenReturn(designHandle);
         when(reportEngine.createRunTask(design)).thenReturn(task);
-
         when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
                 .thenThrow(new RuntimeException("Renderer stream setup failure"));
 
@@ -396,7 +419,7 @@ class BirtReportingProcessServiceImplTest {
             case "XLS" -> xlsRenderer;
             case "XLSX" -> xlsxRenderer;
             case "XML" -> xmlRenderer;
-            default -> htmlRenderer; // HTML
+            default -> htmlRenderer;
         };
     }
 }

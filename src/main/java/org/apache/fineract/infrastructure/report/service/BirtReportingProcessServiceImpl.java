@@ -109,6 +109,9 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
                 contextInjector.injectContextParameters(runTask);
                 runTask.run(documentPath);
                 return null;
+            } catch (PlatformDataIntegrityException e) {
+                // Preserve specific validation messages (missing parameters, invalid values, …)
+                throw e;
             } catch (Exception e) {
                 log.error("Failed to execute BIRT queries for report: {}", reportName, e);
                 throw new PlatformDataIntegrityException(
