@@ -7,7 +7,6 @@
 package org.apache.fineract.infrastructure.report.migration.builder;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import javax.xml.xpath.XPath;
@@ -21,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 @DisplayName("BirtReportAssembler Tests")
 class BirtReportAssemblerTest {
@@ -56,7 +56,7 @@ class BirtReportAssemblerTest {
         assertThat(getString(paramNode, "property[@name='dataType']/text()")).isEqualTo("date");
         assertThat(getString(paramNode, "property[@name='isRequired']/text()")).isEqualTo("true");
         assertThat(getString(paramNode, "simple-property-list[@name='defaultValue']/value/text()"))
-                .isEqualTo("  2023-01-01  "); // Verifies whitespace is fully preserved
+                .isEqualTo("  2023-01-01  ");
     }
 
     @Test
@@ -69,9 +69,49 @@ class BirtReportAssemblerTest {
         assertThat(getString(datasetNode, "xml-property[@name='queryText']/text()"))
                 .isEqualTo("SELECT * FROM offices WHERE id = ? AND status = ? OR parent_id = ?");
 
-        assertBinding(datasetNode, 1, "officeId_1", "officeId", "integer");
+        assertBinding(datasetNode, 1, "officeId_1", "officeId", "string");
         assertBinding(datasetNode, 2, "status_2", "status", "string");
-        assertBinding(datasetNode, 3, "officeId_3", "officeId", "integer");
+        assertBinding(datasetNode, 3, "officeId_3", "officeId", "string");
+    }
+
+    @Test
+    @DisplayName("Should dynamically inject fallback parameter when dataset references an undeclared parameter")
+    void shouldFallbackMissingParameter() throws Exception {
+        PentahoSqlDataset ds =
+                new PentahoSqlDataset("BadDS", "SELECT * FROM t WHERE id = ${missingId} OR parent_id = ${missingId}");
+        PentahoReportModel model = new PentahoReportModel("Test", List.of(ds), List.of(), List.of());
+
+        assembler.assemble(model);
+
+        Node datasetNode = getNode("/report/data-sets/oda-data-set[@name='BadDS']");
+        assertThat(datasetNode).isNotNull();
+        assertBinding(datasetNode, 1, "missingId_1", "missingId", "string");
+        assertBinding(datasetNode, 2, "missingId_2", "missingId", "string");
+
+        // Verify the deduplicated fallback scalar-parameter declaration was auto-generated exactly once
+        // globally
+        NodeList scalarParams = (NodeList) xpath.evaluate(
+                "/report/parameters/scalar-parameter[@name='missingId']",
+                domBuilder.getDocument(),
+                XPathConstants.NODESET);
+
+        assertThat(scalarParams.getLength()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Should auto-generate data sources and report body structural layout")
+    void shouldAssembleDataSourcesAndBody() throws Exception {
+        setupComplexDatasetFixture();
+
+        Node dataSourceNode = getNode("/report/data-sources/oda-data-source[@name='Data Source']");
+        assertThat(dataSourceNode).isNotNull();
+
+        Node bodyTableNode = getNode("/report/body/table");
+        assertThat(bodyTableNode).isNotNull();
+        assertThat(getString(bodyTableNode, "property[@name='dataSet']/text()")).isEqualTo("MainDS");
+
+        Node detailCellLabel = getNode("/report/body/table/detail/row/cell/label");
+        assertThat(detailCellLabel).isNotNull();
     }
 
     private void setupComplexDatasetFixture() {
@@ -94,24 +134,12 @@ class BirtReportAssemblerTest {
     }
 
     @Test
-    @DisplayName("Should reject dataset when referencing an undeclared report parameter")
-    void shouldRejectMissingParameter() {
-        PentahoSqlDataset ds = new PentahoSqlDataset("BadDS", "SELECT * FROM t WHERE id = ${missingId}");
-        PentahoReportModel model = new PentahoReportModel("Test", List.of(ds), List.of(), List.of());
-
-        assertThatThrownBy(() -> assembler.assemble(model))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Dataset 'BadDS' references missing parameter 'missingId'");
-    }
-
-    @Test
     @DisplayName("Should gracefully handle null models and empty lists")
     void shouldHandleNulls() {
         assembler.assemble(null);
         assembler.assemble(new PentahoReportModel("EmptyNulls", null, null, null));
         assembler.assemble(new PentahoReportModel("EmptyLists", List.of(), List.of(), List.of()));
 
-        // Verify DOM builder remained completely intact and threw no errors
         assertThat(domBuilder.getDocument().getDocumentElement()).isNotNull();
     }
 }

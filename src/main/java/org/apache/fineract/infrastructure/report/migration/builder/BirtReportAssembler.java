@@ -6,10 +6,13 @@
  */
 package org.apache.fineract.infrastructure.report.migration.builder;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.infrastructure.report.migration.model.PentahoParameter;
 import org.apache.fineract.infrastructure.report.migration.model.PentahoReportModel;
 import org.apache.fineract.infrastructure.report.migration.model.PentahoSqlDataset;
@@ -19,30 +22,78 @@ import org.apache.fineract.infrastructure.report.migration.util.TranslatedQuery;
 import org.w3c.dom.CDATASection;
 import org.w3c.dom.Element;
 
-/** Orchestrates the translation and injection of Pentaho IR models into the BIRT XML DOM. */
+@Slf4j
 public class BirtReportAssembler {
 
     private final BirtDomBuilder domBuilder;
     private final AtomicInteger elementIdCounter = new AtomicInteger(100);
+
+    private Element parametersNode;
+    private final Set<String> declaredParameters = new HashSet<>();
 
     public BirtReportAssembler(BirtDomBuilder domBuilder) {
         this.domBuilder = domBuilder;
     }
 
     public void assemble(PentahoReportModel reportModel) {
-        if (reportModel == null) {
-            return;
-        }
+        if (reportModel == null) return;
+
+        buildDataSources();
         buildReportParameters(reportModel.parameters());
         buildDataSets(reportModel.datasets(), reportModel.parameters());
+        buildReportBody(reportModel.datasets());
+    }
+
+    private void buildDataSources() {
+        Element dataSources = domBuilder.appendElement(domBuilder.getReportRoot(), "data-sources");
+        Element ds = domBuilder.appendElement(dataSources, "oda-data-source");
+        ds.setAttribute("extensionID", "org.eclipse.birt.report.data.oda.jdbc");
+        ds.setAttribute("name", "Data Source");
+        ds.setAttribute("id", String.valueOf(elementIdCounter.getAndIncrement()));
+    }
+
+    private void buildReportBody(List<PentahoSqlDataset> datasets) {
+        if (datasets == null || datasets.isEmpty()) return;
+
+        Element body = domBuilder.appendElement(domBuilder.getReportRoot(), "body");
+        Element table = domBuilder.appendElement(body, "table");
+        table.setAttribute("id", String.valueOf(elementIdCounter.getAndIncrement()));
+
+        Element dataSetProp = domBuilder.appendElement(table, "property");
+        dataSetProp.setAttribute("name", "dataSet");
+        dataSetProp.setTextContent(datasets.get(0).queryName());
+
+        // Inject a visible fallback detail row and cell, since Pentaho IR lacks strict result-column
+        // metadata
+        Element detail = domBuilder.appendElement(table, "detail");
+        Element row = domBuilder.appendElement(detail, "row");
+        Element cell = domBuilder.appendElement(row, "cell");
+        Element label = domBuilder.appendElement(cell, "label");
+        domBuilder.appendProperty(
+                label,
+                "text",
+                "Dataset Placeholder: " + datasets.get(0).queryName() + " (Requires BIRT layout rendering)");
     }
 
     private void buildReportParameters(List<PentahoParameter> parameters) {
+        parametersNode = domBuilder.appendElement(domBuilder.getReportRoot(), "parameters");
         if (parameters == null || parameters.isEmpty()) return;
-        Element parametersNode = domBuilder.appendElement(domBuilder.getReportRoot(), "parameters");
         for (PentahoParameter param : parameters) {
+            declaredParameters.add(param.name());
             buildSingleParameter(parametersNode, param);
         }
+    }
+
+    private boolean isSafeToExportDefault(String paramName) {
+        if (paramName == null) return true;
+        String pName = paramName.toLowerCase();
+        return !(pName.contains("user")
+                || pName.contains("pwd")
+                || pName.contains("password")
+                || pName.contains("url")
+                || pName.contains("token")
+                || pName.contains("secret")
+                || pName.contains("connection"));
     }
 
     private void buildSingleParameter(Element parametersNode, PentahoParameter param) {
@@ -50,8 +101,13 @@ public class BirtReportAssembler {
         scalarParam.setAttribute("name", param.name());
         scalarParam.setAttribute("id", String.valueOf(elementIdCounter.getAndIncrement()));
 
+        String dataType = BirtDataTypeMapper.mapType(param.type());
+        if ("integer".equalsIgnoreCase(dataType) || "decimal".equalsIgnoreCase(dataType)) {
+            dataType = "string";
+        }
+
         domBuilder.appendProperty(scalarParam, "valueType", "static");
-        domBuilder.appendProperty(scalarParam, "dataType", BirtDataTypeMapper.mapType(param.type()));
+        domBuilder.appendProperty(scalarParam, "dataType", dataType);
         domBuilder.appendProperty(scalarParam, "paramType", "simple");
         domBuilder.appendProperty(scalarParam, "controlType", "text-box");
 
@@ -59,12 +115,12 @@ public class BirtReportAssembler {
             domBuilder.appendProperty(scalarParam, "isRequired", "true");
         }
 
-        if (param.defaultValue() != null && !param.defaultValue().isBlank()) {
+        if (param.defaultValue() != null && !param.defaultValue().isBlank() && isSafeToExportDefault(param.name())) {
             Element defaultList = domBuilder.appendElement(scalarParam, "simple-property-list");
             defaultList.setAttribute("name", "defaultValue");
             Element val = domBuilder.appendElement(defaultList, "value");
             val.setAttribute("type", "constant");
-            val.setTextContent(param.defaultValue()); // Retain intentional whitespace
+            val.setTextContent(param.defaultValue());
         }
     }
 
@@ -114,14 +170,27 @@ public class BirtReportAssembler {
         for (String paramName : queryParams) {
             PentahoParameter pInfo = paramMap.get(paramName);
             if (pInfo == null) {
-                throw new IllegalStateException(
-                        String.format("Dataset '%s' references missing parameter '%s'", queryName, paramName));
+                log.warn(
+                        "Dataset '{}' references missing parameter '{}'. Adding dynamic fallback.",
+                        queryName,
+                        paramName);
+                pInfo = new PentahoParameter(paramName, "string", false, null, false, null);
+
+                // Inject missing parameter as a non-mandatory scalar-parameter declaration
+                if (parametersNode != null && declaredParameters.add(paramName)) {
+                    buildSingleParameter(parametersNode, pInfo);
+                }
+            }
+
+            String mappedType = BirtDataTypeMapper.mapType(pInfo.type());
+            if ("integer".equalsIgnoreCase(mappedType) || "decimal".equalsIgnoreCase(mappedType)) {
+                mappedType = "string";
             }
 
             Element structure = domBuilder.appendElement(listProp, "structure");
             domBuilder.appendProperty(structure, "name", paramName + "_" + position);
             domBuilder.appendProperty(structure, "paramName", paramName);
-            domBuilder.appendProperty(structure, "dataType", BirtDataTypeMapper.mapType(pInfo.type()));
+            domBuilder.appendProperty(structure, "dataType", mappedType);
             domBuilder.appendProperty(structure, "position", String.valueOf(position));
             domBuilder.appendProperty(structure, "isInput", "true");
             domBuilder.appendProperty(structure, "isOutput", "false");

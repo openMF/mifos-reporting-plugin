@@ -6,6 +6,7 @@
  */
 package org.apache.fineract.infrastructure.report.migration.util;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -147,5 +148,36 @@ class PentahoSqlTranslatorTest {
 
         assertEquals("SELECT * FROM m_client WHERE id = ? AND status = ${   }", result.sql());
         assertEquals(List.of("id"), result.parameterNames());
+    }
+
+    @Test
+    @DisplayName("Should correctly decode doubled backticks into single backticks inside PostgreSQL double quotes")
+    void shouldDecodeDoubledBackticks() {
+        String pentahoSql = "SELECT `user``name` FROM `table``_name`";
+        TranslatedQuery query = PentahoSqlTranslator.translate(pentahoSql);
+
+        // MySQL `` becomes ` inside the resulting standard PostgreSQL double-quoted identifier
+        assertThat(query.sql()).isEqualTo("SELECT \"user`name\" FROM \"table`_name\"");
+    }
+
+    @Test
+    @DisplayName("Should convert MySQL string literal backslash escapes to standard PostgreSQL syntax")
+    void shouldConvertMySqlEscapedStrings() {
+        String sql = "SELECT 'It\\'s a test', 'Line\\\\Break' FROM m_client";
+        TranslatedQuery result = PentahoSqlTranslator.translate(sql);
+        assertThat(result.sql()).isEqualTo("SELECT 'It''s a test', 'Line\\Break' FROM m_client");
+    }
+
+    @Test
+    @DisplayName("Should correctly translate nested IF statements containing internal function commas")
+    void shouldTranslateNestedIfStatements() {
+        String pentahoSql = "SELECT IF(status = 1, IF(active = 1, CONCAT(first, last), 'N/A'), 'Unknown') FROM users";
+        TranslatedQuery query = PentahoSqlTranslator.translate(pentahoSql);
+
+        // Ensure the internal comma in CONCAT does not prematurely break the IF arguments
+        // and recursive translation converts both IFs to CASE WHEN.
+        assertThat(query.sql())
+                .isEqualTo(
+                        "SELECT CASE WHEN status = 1 THEN CASE WHEN active = 1 THEN CONCAT(first, last) ELSE 'N/A' END ELSE 'Unknown' END FROM users");
     }
 }
