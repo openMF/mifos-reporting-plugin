@@ -67,10 +67,11 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     private final PlatformTransactionManager transactionManager;
     private final BirtSqlDialectInterpolator sqlDialectInterpolator;
     private final DatabasePasswordEncryptor databasePasswordEncryptor;
+    private final ReportSecurityService reportSecurityService;
 
     @Override
     public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
-
+        reportSecurityService.checkReadReportPermission();
         final String outputType = resolveOutputType(queryParams);
         final Locale locale = ApiParameterHelper.extractLocale(queryParams);
         final Map<String, String> reportParams = getReportParams(reportName, queryParams);

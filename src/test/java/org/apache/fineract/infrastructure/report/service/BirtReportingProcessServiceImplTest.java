@@ -107,6 +107,9 @@ class BirtReportingProcessServiceImplTest {
     @Mock
     private BirtRenderer xmlRenderer;
 
+    @Mock
+    private ReportSecurityService reportSecurityService;
+
     @InjectMocks
     private BirtReportingProcessServiceImpl service;
 
