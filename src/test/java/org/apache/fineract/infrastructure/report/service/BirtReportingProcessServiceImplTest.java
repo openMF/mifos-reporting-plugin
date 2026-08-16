@@ -103,6 +103,9 @@ class BirtReportingProcessServiceImplTest {
     @Mock
     private DatabasePasswordEncryptor databasePasswordEncryptor;
 
+    @Mock
+    private BirtRenderer xmlRenderer;
+
     @InjectMocks
     private BirtReportingProcessServiceImpl service;
 
@@ -119,7 +122,8 @@ class BirtReportingProcessServiceImplTest {
                 "HTML", htmlRenderer,
                 "XLS", xlsRenderer,
                 "XLSX", xlsxRenderer,
-                "CSV", csvRenderer);
+                "CSV", csvRenderer,
+                "XML", xmlRenderer);
         ReflectionTestUtils.setField(service, "birtRenderers", renderers);
 
         lenient().when(birtProperties.getDefaultLocale()).thenReturn("en");
@@ -211,7 +215,8 @@ class BirtReportingProcessServiceImplTest {
         "HTML, text/html",
         "XLS, application/vnd.ms-excel",
         "XLSX, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "CSV, text/csv"
+        "CSV, text/csv",
+        "XML, application/xml"
     })
     @DisplayName("Should support all major export formats via streaming")
     void shouldSupportAllExportFormats(String outputType, String expectedMimeType) throws Exception {
@@ -245,12 +250,13 @@ class BirtReportingProcessServiceImplTest {
         List<ReportExportType> targets = service.getAvailableExportTargets();
 
         assertNotNull(targets);
-        assertEquals(5, targets.size());
+        assertEquals(6, targets.size());
         assertTrue(targets.stream().anyMatch(t -> "PDF".equals(t.getKey())));
         assertTrue(targets.stream().anyMatch(t -> "XLS".equals(t.getKey())));
         assertTrue(targets.stream().anyMatch(t -> "XLSX".equals(t.getKey())));
         assertTrue(targets.stream().anyMatch(t -> "CSV".equals(t.getKey())));
         assertTrue(targets.stream().anyMatch(t -> "HTML".equals(t.getKey())));
+        assertTrue(targets.stream().anyMatch(t -> "XML".equals(t.getKey())));
     }
 
     @Test
@@ -389,6 +395,7 @@ class BirtReportingProcessServiceImplTest {
             case "CSV" -> csvRenderer;
             case "XLS" -> xlsRenderer;
             case "XLSX" -> xlsxRenderer;
+            case "XML" -> xmlRenderer;
             default -> htmlRenderer; // HTML
         };
     }

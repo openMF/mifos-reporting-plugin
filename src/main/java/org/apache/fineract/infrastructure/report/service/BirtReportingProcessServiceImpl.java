@@ -152,7 +152,8 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
                 new ReportExportType("XLS", "xls"),
                 new ReportExportType("XLSX", "xlsx"),
                 new ReportExportType("CSV", "csv"),
-                new ReportExportType("HTML", "html"));
+                new ReportExportType("HTML", "html"),
+                new ReportExportType("XML", "xml"));
     }
 
     private void setConnectionDetail(IRunTask runTask, Connection springConnection) throws Exception {
@@ -180,7 +181,7 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
         String type = queryParams.getFirst("output-type");
         String upper = StringUtils.defaultIfBlank(type, "HTML").toUpperCase();
 
-        if (!Set.of("HTML", "PDF", "XLS", "XLSX", "CSV").contains(upper)) {
+        if (!Set.of("HTML", "PDF", "XLS", "XLSX", "CSV", "XML").contains(upper)) {
             throw new PlatformDataIntegrityException(
                     "error.msg.invalid.outputType", "Unsupported output type: " + type);
         }
