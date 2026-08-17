@@ -11,31 +11,30 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.eclipse.birt.report.engine.api.IRunTask;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /** Handles authorization context injection for BIRT reports (Single Responsibility). */
 @Slf4j
 @Component
+@Primary
 @RequiredArgsConstructor
 public class BirtContextInjector {
+
+    private static final String PARAM_USER_HIERARCHY = "userhierarchy";
+    private static final String PARAM_USER_ID = "userid";
 
     private final PlatformSecurityContext securityContext;
     private final ReportErrorHandler reportErrorHandler;
 
-    /**
-     * Injects security and tenant-specific contextual parameters into the BIRT run task. This ensures
-     * row-level scoping and tenant isolation are enforced during report execution.
-     *
-     * @param task The BIRT run task to configure.
-     */
     public void injectContextParameters(IRunTask task) {
         try {
             var currentUser = securityContext.authenticatedUser();
             var tenant = ThreadLocalContextUtil.getTenant();
 
-            // Maintain only critical contextual row-level scoping markers
-            task.setParameterValue("userhierarchy", currentUser.getOffice().getHierarchy());
-            task.setParameterValue("userid", currentUser.getId());
+            // Pass as strings to safely bind to the BIRT string XML parameters
+            task.setParameterValue(PARAM_USER_HIERARCHY, currentUser.getOffice().getHierarchy());
+            task.setParameterValue(PARAM_USER_ID, String.valueOf(currentUser.getId()));
 
             log.debug("Security scope context parameters injected successfully for tenant: {}", tenant.getName());
         } catch (Exception e) {

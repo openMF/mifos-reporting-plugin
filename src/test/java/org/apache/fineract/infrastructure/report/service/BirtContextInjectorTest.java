@@ -42,7 +42,7 @@ class BirtContextInjectorTest {
     private BirtContextInjector injector;
 
     @Test
-    @DisplayName("Should successfully inject user hierarchy and userid into task")
+    @DisplayName("Should successfully inject user hierarchy and userid into task as strings")
     void shouldInjectContextSuccessfully() {
         AppUser mockUser = mock(AppUser.class, RETURNS_DEEP_STUBS);
         FineractPlatformTenant mockTenant = mock(FineractPlatformTenant.class);
@@ -58,7 +58,8 @@ class BirtContextInjectorTest {
             injector.injectContextParameters(runTask);
 
             verify(runTask).setParameterValue("userhierarchy", ".1.");
-            verify(runTask).setParameterValue("userid", 1L);
+            // FIX: Assert that the ID is successfully cast to String for BIRT compatibility
+            verify(runTask).setParameterValue("userid", "1");
         }
     }
 }

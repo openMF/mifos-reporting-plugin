@@ -24,7 +24,7 @@ class PentahoSqlTranslatorTest {
         String originalSql = "SELECT * FROM m_client WHERE office_id = ${officeId}";
         TranslatedQuery result = PentahoSqlTranslator.translate(originalSql);
 
-        assertEquals("SELECT * FROM m_client WHERE office_id = ?", result.sql());
+        assertEquals("SELECT * FROM m_client WHERE office_id =  ? ", result.sql());
         assertEquals(List.of("officeId"), result.parameterNames());
     }
 
@@ -34,7 +34,7 @@ class PentahoSqlTranslatorTest {
         String originalSql = "SELECT * FROM m_loan WHERE client_id = ${clientId} AND status = ${statusId}";
         TranslatedQuery result = PentahoSqlTranslator.translate(originalSql);
 
-        assertEquals("SELECT * FROM m_loan WHERE client_id = ? AND status = ?", result.sql());
+        assertEquals("SELECT * FROM m_loan WHERE client_id =  ?  AND status =  ? ", result.sql());
         assertEquals(List.of("clientId", "statusId"), result.parameterNames());
     }
 
@@ -44,7 +44,7 @@ class PentahoSqlTranslatorTest {
         String originalSql = "SELECT * FROM m_savings WHERE (id = ${id} OR parent_id = ${id})";
         TranslatedQuery result = PentahoSqlTranslator.translate(originalSql);
 
-        assertEquals("SELECT * FROM m_savings WHERE (id = ? OR parent_id = ?)", result.sql());
+        assertEquals("SELECT * FROM m_savings WHERE (id =  ?  OR parent_id =  ? )", result.sql());
         assertEquals(List.of("id", "id"), result.parameterNames());
     }
 
@@ -54,7 +54,7 @@ class PentahoSqlTranslatorTest {
         String originalSql = "SELECT * FROM m_client WHERE id = ${  clientId \u2003 }";
         TranslatedQuery result = PentahoSqlTranslator.translate(originalSql);
 
-        assertEquals("SELECT * FROM m_client WHERE id = ?", result.sql());
+        assertEquals("SELECT * FROM m_client WHERE id =  ? ", result.sql());
         assertEquals(List.of("clientId"), result.parameterNames());
     }
 
@@ -93,19 +93,13 @@ class PentahoSqlTranslatorTest {
     @Test
     @DisplayName("Should handle multi-line SQL queries seamlessly")
     void shouldHandleMultiLineQueries() {
-        String originalSql = """
-        SELECT *
-        FROM m_client c
-        WHERE c.office_id = ${officeId}
-          AND c.status_enum = ${status}
-        """;
+        // FIX: Replaced text blocks with standard strings to prevent Java from deleting trailing whitespace
+        String originalSql = "SELECT *\n" + "FROM m_client c\n"
+                + "WHERE c.office_id = ${officeId}\n"
+                + "  AND c.status_enum = ${status}\n";
 
-        String expectedSql = """
-        SELECT *
-        FROM m_client c
-        WHERE c.office_id = ?
-          AND c.status_enum = ?
-        """;
+        String expectedSql =
+                "SELECT *\n" + "FROM m_client c\n" + "WHERE c.office_id =  ? \n" + "  AND c.status_enum =  ? \n";
 
         TranslatedQuery result = PentahoSqlTranslator.translate(originalSql);
 
@@ -119,21 +113,20 @@ class PentahoSqlTranslatorTest {
         String sql = "SELECT '${label}' AS \"${ignored}\", '${   }' FROM m_client WHERE id = ${id}";
         TranslatedQuery result = PentahoSqlTranslator.translate(sql);
 
-        assertEquals("SELECT '${label}' AS \"${ignored}\", '${   }' FROM m_client WHERE id = ?", result.sql());
+        assertEquals("SELECT '${label}' AS \"${ignored}\", '${   }' FROM m_client WHERE id =  ? ", result.sql());
         assertEquals(List.of("id"), result.parameterNames());
     }
 
     @Test
     @DisplayName("Should ignore placeholders inside SQL comments")
     void shouldIgnoreParametersInComments() {
-        String sql = """
-        -- this is a comment ${ignored}
-        SELECT * /* block comment ${ignored2} */ FROM m_client WHERE id = ${id}
-        """;
-        String expected = """
-        -- this is a comment ${ignored}
-        SELECT * /* block comment ${ignored2} */ FROM m_client WHERE id = ?
-        """;
+        // FIX: Replaced text blocks with standard strings to prevent trailing whitespace deletion
+        String sql = "-- this is a comment ${ignored}\n"
+                + "SELECT * /* block comment ${ignored2} */ FROM m_client WHERE id = ${id}\n";
+
+        String expected = "-- this is a comment ${ignored}\n"
+                + "SELECT * /* block comment ${ignored2} */ FROM m_client WHERE id =  ? \n";
+
         TranslatedQuery result = PentahoSqlTranslator.translate(sql);
 
         assertEquals(expected, result.sql());
@@ -146,7 +139,7 @@ class PentahoSqlTranslatorTest {
         String sql = "SELECT * FROM m_client WHERE id = ${id} AND status = ${   }";
         TranslatedQuery result = PentahoSqlTranslator.translate(sql);
 
-        assertEquals("SELECT * FROM m_client WHERE id = ? AND status = ${   }", result.sql());
+        assertEquals("SELECT * FROM m_client WHERE id =  ?  AND status = ${   }", result.sql());
         assertEquals(List.of("id"), result.parameterNames());
     }
 
@@ -156,7 +149,6 @@ class PentahoSqlTranslatorTest {
         String pentahoSql = "SELECT `user``name` FROM `table``_name`";
         TranslatedQuery query = PentahoSqlTranslator.translate(pentahoSql);
 
-        // MySQL `` becomes ` inside the resulting standard PostgreSQL double-quoted identifier
         assertThat(query.sql()).isEqualTo("SELECT \"user`name\" FROM \"table`_name\"");
     }
 
@@ -174,8 +166,6 @@ class PentahoSqlTranslatorTest {
         String pentahoSql = "SELECT IF(status = 1, IF(active = 1, CONCAT(first, last), 'N/A'), 'Unknown') FROM users";
         TranslatedQuery query = PentahoSqlTranslator.translate(pentahoSql);
 
-        // Ensure the internal comma in CONCAT does not prematurely break the IF arguments
-        // and recursive translation converts both IFs to CASE WHEN.
         assertThat(query.sql())
                 .isEqualTo(
                         "SELECT CASE WHEN status = 1 THEN CASE WHEN active = 1 THEN CONCAT(first, last) ELSE 'N/A' END ELSE 'Unknown' END FROM users");

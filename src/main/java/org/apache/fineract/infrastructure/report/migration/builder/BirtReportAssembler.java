@@ -29,7 +29,9 @@ public class BirtReportAssembler {
     private final AtomicInteger elementIdCounter = new AtomicInteger(100);
 
     private Element parametersNode;
-    private final Set<String> declaredParameters = new HashSet<>();
+
+    // FIX 1: Track added parameters by lowercase name to completely prevent BIRT Duplicate Name XML parsing crashes
+    private final Set<String> safelyAddedParameters = new HashSet<>();
 
     public BirtReportAssembler(BirtDomBuilder domBuilder) {
         this.domBuilder = domBuilder;
@@ -63,8 +65,6 @@ public class BirtReportAssembler {
         dataSetProp.setAttribute("name", "dataSet");
         dataSetProp.setTextContent(datasets.get(0).queryName());
 
-        // Inject a visible fallback detail row and cell, since Pentaho IR lacks strict result-column
-        // metadata
         Element detail = domBuilder.appendElement(table, "detail");
         Element row = domBuilder.appendElement(detail, "row");
         Element cell = domBuilder.appendElement(row, "cell");
@@ -79,8 +79,9 @@ public class BirtReportAssembler {
         parametersNode = domBuilder.appendElement(domBuilder.getReportRoot(), "parameters");
         if (parameters == null || parameters.isEmpty()) return;
         for (PentahoParameter param : parameters) {
-            declaredParameters.add(param.name());
-            buildSingleParameter(parametersNode, param);
+            if (safelyAddedParameters.add(param.name().toLowerCase())) {
+                buildSingleParameter(parametersNode, param);
+            }
         }
     }
 
@@ -101,10 +102,7 @@ public class BirtReportAssembler {
         scalarParam.setAttribute("name", param.name());
         scalarParam.setAttribute("id", String.valueOf(elementIdCounter.getAndIncrement()));
 
-        String dataType = BirtDataTypeMapper.mapType(param.type());
-        if ("integer".equalsIgnoreCase(dataType) || "decimal".equalsIgnoreCase(dataType)) {
-            dataType = "string";
-        }
+        String dataType = resolveParameterDataType(param.name(), param.type());
 
         domBuilder.appendProperty(scalarParam, "valueType", "static");
         domBuilder.appendProperty(scalarParam, "dataType", dataType);
@@ -170,22 +168,15 @@ public class BirtReportAssembler {
         for (String paramName : queryParams) {
             PentahoParameter pInfo = paramMap.get(paramName);
             if (pInfo == null) {
-                log.warn(
-                        "Dataset '{}' references missing parameter '{}'. Adding dynamic fallback.",
-                        queryName,
-                        paramName);
                 pInfo = new PentahoParameter(paramName, "string", false, null, false, null);
 
-                // Inject missing parameter as a non-mandatory scalar-parameter declaration
-                if (parametersNode != null && declaredParameters.add(paramName)) {
+                // Add fallback only if we haven't already generated it globally
+                if (parametersNode != null && safelyAddedParameters.add(paramName.toLowerCase())) {
                     buildSingleParameter(parametersNode, pInfo);
                 }
             }
 
-            String mappedType = BirtDataTypeMapper.mapType(pInfo.type());
-            if ("integer".equalsIgnoreCase(mappedType) || "decimal".equalsIgnoreCase(mappedType)) {
-                mappedType = "string";
-            }
+            String mappedType = resolveParameterDataType(paramName, pInfo.type());
 
             Element structure = domBuilder.appendElement(listProp, "structure");
             domBuilder.appendProperty(structure, "name", paramName + "_" + position);
@@ -196,5 +187,28 @@ public class BirtReportAssembler {
             domBuilder.appendProperty(structure, "isOutput", "false");
             position++;
         }
+    }
+
+    private String resolveParameterDataType(String paramName, String rawType) {
+        if (paramName == null) return "string";
+        String lowerName = paramName.toLowerCase();
+
+        // Match Context Injector (Must be string to receive Java Strings)
+        if ("userid".equals(lowerName) || "userhierarchy".equals(lowerName)) {
+            return "string";
+        }
+        // Protect Dropdowns from being parsed as Dates/Numbers
+        if (lowerName.endsWith("type") || lowerName.endsWith("name") || lowerName.endsWith("enum")) {
+            return "string";
+        }
+        // Force IDs to integers to safely query Postgres BIGINT columns
+        if (lowerName.endsWith("id")
+                || lowerName.equals("office")
+                || lowerName.equals("currency")
+                || lowerName.equals("fund")) {
+            return "integer";
+        }
+
+        return BirtDataTypeMapper.mapType(rawType);
     }
 }

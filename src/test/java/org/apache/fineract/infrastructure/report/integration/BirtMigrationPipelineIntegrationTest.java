@@ -43,8 +43,6 @@ public class BirtMigrationPipelineIntegrationTest extends BirtIntegrationTestBas
 
     static Stream<String> provideMigratedReports() throws IOException {
         Path reportsDir = Paths.get("birt", "reports");
-        // FIX: Use try-with-resources to prevent file handle leaks, converting to a list before
-        // streaming
         try (Stream<Path> paths = Files.walk(reportsDir)) {
             return paths
                     .filter(Files::isRegularFile)
@@ -56,23 +54,37 @@ public class BirtMigrationPipelineIntegrationTest extends BirtIntegrationTestBas
     }
 
     private void registerReportInFineractDatabase(String reportName) {
-        // FIX: Basic SQL Injection prevention for the container execution
         if (reportName.contains(";") || reportName.contains("\n") || reportName.contains("\r")) {
             throw new IllegalArgumentException("Invalid report name: " + reportName);
         }
         String safeName = reportName.replace("'", "''");
+        String permissionCode = "READ_" + safeName;
 
-        String insertSql = String.format(
-                "INSERT INTO stretchy_report (report_name, report_type, report_category, report_sql, description, core_report, use_report) "
-                        + "SELECT '%s', 'BIRT', 'Migration', '', 'Auto-registered by Integration Test', true, true "
-                        + "WHERE NOT EXISTS (SELECT 1 FROM stretchy_report WHERE report_name = '%s');",
-                safeName, safeName);
+        String[] sqlCommands = {
+            // 1. Register the Report in the database
+            String.format(
+                    "INSERT INTO stretchy_report (report_name, report_type, report_category, report_sql, description, core_report, use_report) SELECT '%s', 'BIRT', 'Migration', '', 'Auto-registered', true, true WHERE NOT EXISTS (SELECT 1 FROM stretchy_report WHERE report_name = '%s');",
+                    safeName, safeName),
+            String.format("UPDATE stretchy_report SET report_type = 'BIRT' WHERE report_name = '%s';", safeName),
 
-        String updateSql =
-                String.format("UPDATE stretchy_report SET report_type = 'BIRT' WHERE report_name = '%s';", safeName);
+            // 2. Inject Victor's new Global Read Permission
+            "INSERT INTO m_permission (grouping, code, entity_name, action_name, can_maker_checker) SELECT 'report', 'READ_REPORT', 'REPORT', 'READ', false WHERE NOT EXISTS (SELECT 1 FROM m_permission WHERE code = 'READ_REPORT');",
 
-        execPostgres("psql", "-U", "postgres", "-d", "fineract_default", "-c", insertSql);
-        execPostgres("psql", "-U", "postgres", "-d", "fineract_default", "-c", updateSql);
+            // 3. Inject Fineract's Dynamic Report-Specific Permission
+            String.format(
+                    "INSERT INTO m_permission (grouping, code, entity_name, action_name, can_maker_checker) SELECT 'report', '%s', 'REPORT', 'READ', false WHERE NOT EXISTS (SELECT 1 FROM m_permission WHERE code = '%s');",
+                    permissionCode, permissionCode),
+
+            // 4. Grant both permissions to the default Super User role (role_id = 1)
+            "INSERT INTO m_role_permission (role_id, permission_id) SELECT 1, id FROM m_permission WHERE code = 'READ_REPORT' AND NOT EXISTS (SELECT 1 FROM m_role_permission WHERE role_id = 1 AND permission_id = (SELECT id FROM m_permission WHERE code = 'READ_REPORT'));",
+            String.format(
+                    "INSERT INTO m_role_permission (role_id, permission_id) SELECT 1, id FROM m_permission WHERE code = '%s' AND NOT EXISTS (SELECT 1 FROM m_role_permission WHERE role_id = 1 AND permission_id = (SELECT id FROM m_permission WHERE code = '%s'));",
+                    permissionCode, permissionCode)
+        };
+
+        for (String sql : sqlCommands) {
+            execPostgres("psql", "-U", "postgres", "-d", "fineract_default", "-c", sql);
+        }
     }
 
     private Map<String, String> extractExpectedParameters(String reportName) throws IOException {
@@ -124,7 +136,6 @@ public class BirtMigrationPipelineIntegrationTest extends BirtIntegrationTestBas
 
         Response response = given().auth()
                 .preemptive()
-                // FIX: Use system properties instead of hardcoded credentials
                 .basic(
                         System.getProperty("fineract.it.username", "mifos"),
                         System.getProperty("fineract.it.password", "password"))
@@ -141,8 +152,6 @@ public class BirtMigrationPipelineIntegrationTest extends BirtIntegrationTestBas
         response.then().statusCode(200).contentType("application/pdf").header("Content-Disposition", notNullValue());
 
         byte[] pdfBytes = response.getBody().asByteArray();
-
-        // FIX: Using AssertJ instead of JUnit Assertions
         assertThat(pdfBytes).isNotEmpty();
     }
 }
