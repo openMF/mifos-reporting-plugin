@@ -90,7 +90,8 @@ public final class PentahoSqlTranslator {
         String paramName = m.group(11).strip();
         if (!paramName.isEmpty()) {
             params.add(paramName);
-            m.appendReplacement(tempSql, "?");
+            // FIX: Force clean whitespace around the positional parameter so runtime Regex always matches it
+            m.appendReplacement(tempSql, " ? ");
             return idx;
         }
         tokens.add(m.group(0));

@@ -20,10 +20,6 @@ import org.eclipse.birt.report.model.api.activity.SemanticException;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Component;
 
-/**
- * Architectural Component for MX-297 & MX-298. Intercepts BIRT report templates before execution
- * and interpolates SQL queries at runtime to guarantee database-agnostic cross-compatibility.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -33,41 +29,27 @@ public class BirtSqlDialectInterpolator {
 
     private static final Pattern MYSQL_IFNULL_PATTERN = Pattern.compile("(?i)\\bifnull\\s*\\(");
     private static final Pattern GOV_BACKTICK_PATTERN = Pattern.compile("`");
+    private static final Pattern MYSQL_SINGLE_QUOTE_ALIAS_PATTERN = Pattern.compile("(?i)\\bAS\\s+'([^']+)'");
 
-    /**
-     * Intercepts the BIRT report design and translates SQL queries at runtime. Modifies underlying
-     * dataset queries to match the active database dialect (e.g., PostgreSQL or MariaDB), ensuring
-     * cross-database compatibility.
-     *
-     * @param designHandle The parsed BIRT report design handle.
-     */
+    // Explicitly targets =, >, < comparisons for CASTing to fix BigInt mismatches
+    private static final Pattern POSTGRES_ID_PARAM_PATTERN =
+            Pattern.compile("(?i)(\\b[a-zA-Z0-9_]*id\\b\\s*(?:=|<>|>|<|>=|<=)\\s*)(\\?)");
+
     public void interpolate(ReportDesignHandle designHandle) {
-        if (designHandle == null) {
-            return;
-        }
-
+        if (designHandle == null) return;
         String dialect = detectDatabaseDialect();
-        log.debug("Runtime SQL Interpolation executing for target dialect: {}", dialect);
 
         Iterator<?> dataSets = designHandle.getAllDataSets().iterator();
         while (dataSets.hasNext()) {
             Object next = dataSets.next();
-
             if (next instanceof OdaDataSetHandle odaDataSetHandle) {
                 String originalSql = odaDataSetHandle.getQueryText();
-
                 if (StringUtils.isNotBlank(originalSql)) {
                     String processedSql = translateSql(originalSql, dialect);
-
                     if (!originalSql.equals(processedSql)) {
                         try {
                             odaDataSetHandle.setQueryText(processedSql);
-                            log.trace("Successfully interpolated SQL dataset query for dialect optimization.");
                         } catch (SemanticException e) {
-                            log.error(
-                                    "Failed to set interpolated query text for dataset: {}",
-                                    odaDataSetHandle.getName(),
-                                    e);
                             throw new PlatformDataIntegrityException(
                                     "error.msg.reporting.birt.sql.interpolation.failed",
                                     "BIRT engine rejected SQL dialect interpolation",
@@ -86,15 +68,32 @@ public class BirtSqlDialectInterpolator {
             sql = GOV_BACKTICK_PATTERN.matcher(sql).replaceAll("");
             sql = MYSQL_IFNULL_PATTERN.matcher(sql).replaceAll("coalesce(");
             sql = sql.replace("FUNC_NULL(", "coalesce(");
+            sql = MYSQL_SINGLE_QUOTE_ALIAS_PATTERN.matcher(sql).replaceAll("AS \"$1\"");
+
+            // Cast single ID parameters for Postgres strict typing
+            sql = POSTGRES_ID_PARAM_PATTERN.matcher(sql).replaceAll("$1CAST($2 AS bigint)");
+
+            // Translate legacy MySQL DATE_ADD function
+            sql = sql.replaceAll(
+                    "(?i)\\bDATE_ADD\\s*\\(\\s*\\?\\s*,\\s*INTERVAL\\s+([0-9]+)\\s+DAY\\s*\\)",
+                    "(? + INTERVAL '$1 day')");
+
+            // Neutralize MySQL inline variable assignments
+            sql = sql.replaceAll(
+                    "(?i)\\(\\s*SELECT\\s+@[a-zA-Z0-9_]+\\s*:=\\s*0(?:\\.0)?\\s*\\)\\s*AS\\s+[a-zA-Z0-9_]+",
+                    "(SELECT 0.0) AS init_var");
+            sql = sql.replaceAll(
+                    "(?i)@[a-zA-Z0-9_]+\\s*:=\\s*@[a-zA-Z0-9_]+\\s*(?:\\+|-)\\s*[^\\s]+\\s+AS\\s+[a-zA-Z0-9_]+",
+                    "0.0 AS running_balance");
+            sql = sql.replaceAll("(?i)@[a-zA-Z0-9_]+\\s*:=\\s*[^\\s,)]+", "0.0");
+            sql = sql.replaceAll("(?i)@[a-zA-Z0-9_]+", "0.0");
         } else if ("MARIADB".equalsIgnoreCase(dialect)) {
             sql = sql.replace("FUNC_NULL(", "ifnull(");
         }
-
         return sql;
     }
 
     private String detectDatabaseDialect() {
-        // Participate in the existing Spring Transaction context to avoid connection leaks
         Connection connection = DataSourceUtils.getConnection(dataSource);
         try {
             String prodName = connection.getMetaData().getDatabaseProductName();
@@ -103,10 +102,8 @@ public class BirtSqlDialectInterpolator {
             }
             return "MARIADB";
         } catch (Exception e) {
-            log.warn("Failed to auto-detect database dialect via metadata. Falling back to POSTGRESQL.", e);
             return "POSTGRESQL";
         } finally {
-            // Safely release the connection back to Spring's transaction manager
             DataSourceUtils.releaseConnection(connection, dataSource);
         }
     }

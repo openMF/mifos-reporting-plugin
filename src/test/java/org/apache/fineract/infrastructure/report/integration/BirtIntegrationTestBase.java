@@ -73,10 +73,9 @@ public abstract class BirtIntegrationTestBase {
         // 2. Safely copy the ENTIRE directory of runtime dependencies gathered by Maven
         FINERACT.withCopyFileToContainer(MountableFile.forHostPath("target/test-runtime/libs"), "/app/birt/libs");
 
-        // 3. Copy the plugin jar cleanly into the root of /app/birt to avoid overlapping file vs folder
-        // conflicts
-        FINERACT.withCopyFileToContainer(
-                MountableFile.forHostPath(System.getProperty("birt.plugin.jar")), "/app/birt/birt-plugin.jar");
+        // 3. Copy the plugin jar cleanly into the root of /app/birt with a safe fallback path
+        String pluginJarPath = System.getProperty("birt.plugin.jar", "target/birt-plugin-1.15.0-SNAPSHOT.jar");
+        FINERACT.withCopyFileToContainer(MountableFile.forHostPath(pluginJarPath), "/app/birt/birt-plugin.jar");
 
         // 4. Mount the entire directory of migrated report design files into the container
         FINERACT.withFileSystemBind(

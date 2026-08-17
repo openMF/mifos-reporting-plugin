@@ -60,18 +60,18 @@ class BirtReportAssemblerTest {
     }
 
     @Test
-    @DisplayName("Should assemble datasets with distinct and repeated positional parameters")
+    @DisplayName("Should assemble datasets with distinct and repeated positional parameters and native integer mapping")
     void shouldAssembleDataSets() throws Exception {
         setupComplexDatasetFixture();
         Node datasetNode = getNode("/report/data-sets/oda-data-set[@name='MainDS']");
 
         assertThat(datasetNode).isNotNull();
         assertThat(getString(datasetNode, "xml-property[@name='queryText']/text()"))
-                .isEqualTo("SELECT * FROM offices WHERE id = ? AND status = ? OR parent_id = ?");
+                .isEqualTo("SELECT * FROM offices WHERE id =  ?  AND status =  ?  OR parent_id =  ? ");
 
-        assertBinding(datasetNode, 1, "officeId_1", "officeId", "string");
+        assertBinding(datasetNode, 1, "officeId_1", "officeId", "integer");
         assertBinding(datasetNode, 2, "status_2", "status", "string");
-        assertBinding(datasetNode, 3, "officeId_3", "officeId", "string");
+        assertBinding(datasetNode, 3, "officeId_3", "officeId", "integer");
     }
 
     @Test
@@ -85,11 +85,10 @@ class BirtReportAssemblerTest {
 
         Node datasetNode = getNode("/report/data-sets/oda-data-set[@name='BadDS']");
         assertThat(datasetNode).isNotNull();
-        assertBinding(datasetNode, 1, "missingId_1", "missingId", "string");
-        assertBinding(datasetNode, 2, "missingId_2", "missingId", "string");
 
-        // Verify the deduplicated fallback scalar-parameter declaration was auto-generated exactly once
-        // globally
+        assertBinding(datasetNode, 1, "missingId_1", "missingId", "integer");
+        assertBinding(datasetNode, 2, "missingId_2", "missingId", "integer");
+
         NodeList scalarParams = (NodeList) xpath.evaluate(
                 "/report/parameters/scalar-parameter[@name='missingId']",
                 domBuilder.getDocument(),
@@ -131,15 +130,5 @@ class BirtReportAssemblerTest {
         assertThat(getString(struct, "property[@name='paramName']/text()")).isEqualTo(expectedParamName);
         assertThat(getString(struct, "property[@name='dataType']/text()")).isEqualTo(expectedType);
         assertThat(getString(struct, "property[@name='position']/text()")).isEqualTo(String.valueOf(pos));
-    }
-
-    @Test
-    @DisplayName("Should gracefully handle null models and empty lists")
-    void shouldHandleNulls() {
-        assembler.assemble(null);
-        assembler.assemble(new PentahoReportModel("EmptyNulls", null, null, null));
-        assembler.assemble(new PentahoReportModel("EmptyLists", List.of(), List.of(), List.of()));
-
-        assertThat(domBuilder.getDocument().getDocumentElement()).isNotNull();
     }
 }

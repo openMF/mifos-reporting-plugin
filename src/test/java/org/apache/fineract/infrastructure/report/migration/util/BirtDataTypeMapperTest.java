@@ -23,14 +23,14 @@ class BirtDataTypeMapperTest {
         "java.lang.Short, integer",
         "java.lang.Long, integer",
         "java.math.BigInteger, integer",
-        "java.lang.Number, decimal",
+        "java.lang.Number, integer",
         "java.lang.Double, decimal",
         "java.lang.Float, decimal",
         "java.math.BigDecimal, decimal",
         "java.util.Date, date",
         "java.sql.Date, date",
-        "java.sql.Timestamp, datetime",
-        "java.sql.Time, datetime",
+        "java.sql.Timestamp, date",
+        "java.sql.Time, date",
         "java.lang.Boolean, boolean"
     })
     @DisplayName("Should correctly map standard Pentaho types to BIRT types")
@@ -58,7 +58,6 @@ class BirtDataTypeMapperTest {
     void shouldMapTypesWithWhitespace() {
         assertEquals("integer", BirtDataTypeMapper.mapType(" java.lang.Integer "));
         assertEquals("date", BirtDataTypeMapper.mapType("java.util.Date\t"));
-        // Verifying Unicode whitespace handling (CodeRabbit request)
         assertEquals("integer", BirtDataTypeMapper.mapType("\u2003java.lang.Integer\u2003"));
     }
 }

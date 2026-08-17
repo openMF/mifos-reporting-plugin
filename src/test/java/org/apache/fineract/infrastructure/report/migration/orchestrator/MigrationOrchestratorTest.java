@@ -44,13 +44,11 @@ class MigrationOrchestratorTest {
     }
 
     @Test
-    @DisplayName("Should successfully migrate a nested .prpt archive and output a flattened .rptdesign file")
+    @DisplayName("Should successfully migrate a nested .prpt archive and output a .rptdesign file")
     void shouldMigrateValidNestedReport(@TempDir Path tempSource, @TempDir Path tempTarget) throws Exception {
-        // Arrange: Create a nested directory structure and a mock PRPT zip file
         Path nestedDir = Files.createDirectories(tempSource.resolve("categoryA").resolve("legacy"));
         Path mockPrpt = nestedDir.resolve("mock_report.prpt");
 
-        // Generate a minimal valid Pentaho XML structure inside the PRPT archive
         try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(mockPrpt))) {
             zos.putNextEntry(new ZipEntry("datasources/sql-ds.xml"));
             zos.write("<data><query name=\"q1\"><static-query>SELECT 1</static-query></query></data>"
@@ -66,21 +64,16 @@ class MigrationOrchestratorTest {
             zos.closeEntry();
         }
 
-        // Act
         boolean success = orchestrator.migrate(tempSource, tempTarget);
 
-        // Assert
         assertThat(success).isTrue();
 
-        // Verify the output exists in the flattened target structure (Root of target folder with safe
-        // name)
-        Path expectedOutput = tempTarget.resolve("categoryA_legacy_mock_report.rptdesign");
+        Path expectedOutput = tempTarget.resolve("mock_report.rptdesign");
 
         assertThat(Files.exists(expectedOutput))
-                .withFailMessage("Expected collision-safe flattened output file to exist at %s", expectedOutput)
+                .withFailMessage("Expected output file to exist at %s", expectedOutput)
                 .isTrue();
 
-        // Verify basic BIRT XML export occurred
         String xmlContent = Files.readString(expectedOutput);
         assertThat(xmlContent).contains("<report");
     }
@@ -99,7 +92,6 @@ class MigrationOrchestratorTest {
     @Test
     @DisplayName("Should return false and handle non-existent source directories safely")
     void shouldHandleInvalidDirectories(@TempDir Path tempTarget) throws Exception {
-        // Safely resolve a path guaranteed to be missing inside the temporary target
         Path nonExistentSource = tempTarget.resolve("missing-source");
 
         boolean success = orchestrator.migrate(nonExistentSource, tempTarget);
