@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog-4.3.xsd">
+
+    <!-- 1. Register BIRT as a core external service if missing -->
+    <changeSet author="fineract" id="reporting-003-external-service-birt">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="c_external_service"/>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM c_external_service WHERE name = 'BIRT'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="c_external_service">
+            <column name="name" value="BIRT"/>
+        </insert>
+    </changeSet>
+
+    <!-- 2. Register the default reports directory property if missing -->
+    <changeSet author="fineract" id="reporting-004-external-service-birt-reports-dir">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="c_external_service"/>
+            <tableExists tableName="c_external_service_properties"/>
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM c_external_service_properties p
+                JOIN c_external_service s ON p.external_service_id = s.id
+                WHERE s.name = 'BIRT' AND p.name = 'reports_dir'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="c_external_service_properties">
+            <column name="external_service_id" valueComputed="(SELECT id FROM c_external_service WHERE name = 'BIRT')"/>
+            <column name="name" value="reports_dir"/>
+            <column name="value" value="/app/birt/reports"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

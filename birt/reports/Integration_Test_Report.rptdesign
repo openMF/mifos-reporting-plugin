@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<report xmlns="http://www.eclipse.org/birt/2005/design" id="1" version="3.2.23">
+    <property name="layoutPreference">auto layout</property>
+    <body>
+        <label id="2">
+            <property name="text">Integration Test Successful</property>
+            <property name="textAlign">center</property>
+            <property name="fontWeight">bold</property>
+            <property name="fontSize">24pt</property>
+            <property name="color">#008000</property>
+        </label>
+        <label id="3">
+            <property name="text">This report confirms the BIRT engine is securely rendering PDFs in the CI/CD pipeline.</property>
+            <property name="textAlign">center</property>
+            <property name="fontSize">12pt</property>
+        </label>
+    </body>
+</report>

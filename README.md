@@ -1,11 +1,22 @@
-```markdown
 # Mifos® Reporting Plugin (Eclipse BIRT®) for Apache Fineract®
 
 ## Overview
 
 This is the **Eclipse BIRT® (Business Intelligence and Reporting Tools)** implementation of the Mifos® X Reporting Plugin for Apache Fineract®.
 
-It replaces the legacy Pentaho-based reporting system with a modern and lightweight reporting engine.
+It replaces the legacy Pentaho-based reporting system with a modern, modular, and lightweight reporting architecture supporting PDF, Excel (XLS/XLSX), CSV, and HTML outputs.
+
+---
+
+## Architecture & Report Storage
+
+To ensure multi-tenant isolation and zero-downtime customizations (such as custom branding, localized templates, or custom report layouts), report templates (`.rptdesign`) are externalized from the application binaries.
+
+The reporting engine determines the base report directory using the following hierarchy:
+
+1. **Database Configuration (`c_external_service`):** Configured per tenant in `c_external_service_properties` under the service name `BIRT` and property `reports_dir`.
+2. **Environment Variable / System Property:** Fallback to `MIFOS_BIRT_REPORTS_PATH` or `mifos.birt.reports-path`.
+3. **Default Path:** Fallback to `~/.mifosx/birtReports/`.
 
 ---
 
@@ -21,7 +32,33 @@ mkdir -p /app/birt/reports /app/birt/fonts /app/birt/config
 
 Copy the required **Report**, **Font Config**, and **Font** files into their respective directories.
 
-### 2. Export the Required Variables
+### 2. Download Report Templates
+
+Download the latest `mifos-birt-reports-default.zip` asset from the release page.
+
+Extract the `.rptdesign` template files into your configured reports directory:
+
+```bash
+unzip mifos-birt-reports-default.zip -d /app/birt/reports/
+```
+
+### 3. Configure Database External Service (Optional)
+
+The plugin automatically registers the default path via Liquibase migration. To customize the path per tenant in the database:
+
+```sql
+-- Ensure the BIRT service exists
+INSERT INTO c_external_service (name)
+SELECT 'BIRT'
+WHERE NOT EXISTS (SELECT 1 FROM c_external_service WHERE name = 'BIRT');
+
+-- Configure custom reports directory
+INSERT INTO c_external_service_properties (external_service_id, name, value)
+VALUES ((SELECT id FROM c_external_service WHERE name = 'BIRT'), 'reports_dir', '/app/birt/reports')
+ON CONFLICT (external_service_id, name) DO UPDATE SET value = EXCLUDED.value;
+```
+
+### 4. Export the Required Variables
 
 ```bash
 export MIFOS_BIRT_REPORTS_LOCALE=en
@@ -30,7 +67,13 @@ export MIFOS_BIRT_REPORTS_FONTS_PATH=/app/birt/fonts
 export MIFOS_BIRT_REPORTS_FONTS_CONFIG_PATH=/app/birt/config
 ```
 
-### 3. Download the Mifos® Reporting Plugin
+### 5. Security & User Permissions
+
+To execute reports, the authenticated user role must have the `READ_REPORT` permission enabled, along with the specific permission for the report being requested (e.g., `READ_ACTIVE_LOANS_DETAILS`).
+
+For administrative accounts, the `ALL_FUNCTIONS` superuser permission grants access by default.
+
+### 6. Download the Mifos® Reporting Plugin
 
 Download the Mifos® Reporting Plugin and extract the files.
 
@@ -40,7 +83,7 @@ Download the Mifos® Reporting Plugin and extract the files.
 | --- | --- | --- |
 | TBD | TBD | TBD |
 
-### 4a. Docker® Installation
+### 7a. Docker® Installation
 
 **Execute this step only when using Docker®.**
 
@@ -52,7 +95,16 @@ mkdir fineract-birt && cd fineract-birt
 
 Copy the Mifos® BIRT Plugin and the Eclipse BIRT libraries into this directory.
 
-### 4b. Apache Tomcat® Installation
+Mount your local directories into the container volume:
+
+```yaml
+volumes:
+  - ./birt/reports:/app/birt/reports:ro
+  - ./birt/fonts:/app/birt/fonts:ro
+  - ./birt/config:/app/birt/config:ro
+```
+
+### 7b. Apache Tomcat® Installation
 
 **Execute this step only when using Apache Tomcat®.**
 
@@ -62,11 +114,13 @@ Copy the Mifos® BIRT Plugin and Eclipse BIRT libraries into:
 $TOMCAT_HOME/webapps/fineract-provider/WEB-INF/lib/
 ```
 
-### 5. Restart Apache Fineract®
+> **Note:** This Mifos® Reporting Plugin currently works with Apache Tomcat® version **10+**.
+
+### 8. Restart Apache Fineract®
 
 Restart Docker® or Apache Tomcat® depending on your deployment setup.
 
-### 6. Test the Mifos® Reports
+### 9. Test the Mifos® Reports
 
 After restarting Apache Fineract®, test the Mifos® reports to verify that the BIRT® reporting engine has been correctly registered and loaded.
 
@@ -77,6 +131,12 @@ After restarting Apache Fineract®, test the Mifos® reports to verify that the 
 This project is currently tested against the very latest Apache Fineract® `develop` branch on **Linux Ubuntu® 26.04 LTS**.
 
 Building and using it against other Apache Fineract® versions may be possible, but those versions are currently not tested or documented here.
+
+### Prerequisites
+
+* Java 17+ (matching Apache Fineract® baseline)
+* Maven 3.9+
+* Docker® (for running Testcontainers integration suites)
 
 ### 1. Download and Compile
 
@@ -125,6 +185,16 @@ curl --location --request GET \
 
 Using environment variables for the credentials avoids hardcoding authentication details directly into the command.
 
+Supported `output-type` parameters:
+
+| Type | MIME Type |
+| --- | --- |
+| `PDF` | `application/pdf` |
+| `HTML` | `text/html` |
+| `CSV` | `text/csv` |
+| `XLS` | `application/vnd.ms-excel` |
+| `XLSX` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` |
+
 ### 5. Verify the Output
 
 The output should be a **PDF** containing the **Active Loans - Details** report.
@@ -144,8 +214,6 @@ The API call above should succeed when:
 
 If the API call fails after following the steps above, the BIRT® Plugin has likely not been correctly registered or loaded by Apache Fineract®.
 
-> **Note:** This Mifos® Reporting Plugin currently works with Apache Tomcat® version **10+**.
-
 Make sure that all font files required by the reports are also installed and available at the configured font path.
 
 ### Tests and Verification
@@ -154,6 +222,19 @@ To execute the test suite and verify the integrity of the migration pipeline and
 
 ```bash
 ./mvnw clean test
+```
+
+For full unit tests and end-to-end containerized integration tests (Testcontainers):
+
+```bash
+./mvnw clean verify
+```
+
+To format and check compliance with Spotless style guidelines:
+
+```bash
+./mvnw spotless:apply
+./mvnw spotless:check
 ```
 
 To generate the project's API documentation (Javadoc), run:
