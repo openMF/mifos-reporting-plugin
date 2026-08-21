@@ -19,6 +19,7 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
@@ -34,6 +35,7 @@ public class BirtReportLoader {
     private final ReportErrorHandler reportErrorHandler;
     private final ConcurrentMap<String, Long> reportModificationTimes = new ConcurrentHashMap<>();
     private final CacheManager cacheManager;
+    private final JdbcTemplate jdbcTemplate;
 
     private static final String DEFAULT_REPORTS_DIR = System.getProperty("user.home")
             + File.separator
@@ -89,32 +91,24 @@ public class BirtReportLoader {
     }
 
     public void validateTemplateFreshness(String reportName, java.util.Locale locale) {
-
         String reportPath = buildReportPath(reportName, locale);
         File reportFile = new File(reportPath);
 
         if (!reportFile.exists()) {
-
             evictCacheEntry(reportName, locale);
-
             log.info("Report template no longer exists on disk. Evicted cached version: {}", reportName);
-
             return;
         }
 
         String cacheKey = buildCacheKey(reportName, locale);
-
         long currentLastModified = reportFile.lastModified();
-
         Long cachedLastModified = reportModificationTimes.get(cacheKey);
 
         if (cachedLastModified != null && !cachedLastModified.equals(currentLastModified)) {
-
             log.info(
                     "Detected modification for report template: {} (locale: {}). Evicting cached version.",
                     reportName,
                     locale != null ? locale.getLanguage() : "en");
-
             evictCacheEntry(reportName, locale);
         }
 
@@ -126,17 +120,12 @@ public class BirtReportLoader {
     }
 
     private void evictCacheEntry(String reportName, java.util.Locale locale) {
-
         String cacheKey = buildCacheKey(reportName, locale);
-
         Cache cache = cacheManager.getCache("birtReports");
-
         if (cache != null) {
             cache.evict(cacheKey);
         }
-
         reportModificationTimes.remove(cacheKey);
-
         log.info(
                 "Evicted cached BIRT report template: {} (locale: {})",
                 reportName,
@@ -155,15 +144,31 @@ public class BirtReportLoader {
         String languageTag = (locale != null && !"en".equalsIgnoreCase(locale.getLanguage()))
                 ? "_" + locale.getLanguage().toLowerCase()
                 : "";
-
         return baseDir + reportName + languageTag + ".rptdesign";
     }
 
-    /** Returns the base directory for BIRT reports. Priority: Configured path → Default directory */
+    /** Returns the base directory for BIRT reports. Priority: Database -> Properties -> Default */
     private String getBaseReportsDirectory() {
+        // 1. Primary: Fetch from c_external_service_properties (Hot-swapping architecture)
+        try {
+            String sql = "SELECT p.value FROM c_external_service_properties p "
+                    + "JOIN c_external_service s ON p.external_service_id = s.id "
+                    + "WHERE s.name = 'BIRT' AND p.name = 'reports_dir'";
+            String dbPath = jdbcTemplate.queryForObject(sql, String.class);
+            if (StringUtils.isNotBlank(dbPath)) {
+                log.info("BIRT reports directory loaded dynamically from database: {}", dbPath);
+                return dbPath; // CRITICAL: This actually hands the path back to the engine!
+            }
+        } catch (Exception e) {
+            log.debug("BIRT external service configuration not found in DB. Falling back to application properties.");
+        }
+
+        // 2. Secondary: Fallback to application.properties / ENV vars
         if (StringUtils.isNotBlank(birtProperties.getReportsPath())) {
             return birtProperties.getReportsPath();
         }
+
+        // 3. Absolute Fallback
         return DEFAULT_REPORTS_DIR;
     }
 
@@ -175,9 +180,7 @@ public class BirtReportLoader {
      */
     @CacheEvict(value = "birtReports", key = CACHE_KEY)
     public void evictFromCache(String reportName, java.util.Locale locale) {
-
         reportModificationTimes.remove(buildCacheKey(reportName, locale));
-
         log.info(
                 "Evicting BIRT report template from cache: {} (locale: {})",
                 reportName,

@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-
  Copyright since 2026 Mifos Initiative
  
  <p>This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy
  of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 -->
 <databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd">
-  <include file="parts/001-enable-active-loans-report.xml" relativeToChangelogFile="true"/>  
+  
+  <include file="parts/001-enable-active-loans-report.xml" relativeToChangelogFile="true"/>
+  <include file="parts/002-birt-external-service.xml" relativeToChangelogFile="true"/>  
 </databaseChangeLog>
