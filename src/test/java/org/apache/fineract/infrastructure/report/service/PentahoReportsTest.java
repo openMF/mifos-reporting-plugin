@@ -69,6 +69,34 @@ public class PentahoReportsTest {
     Truth.assertThat(r.contentType()).isEqualTo(MediaType.get("application/pdf"));
   }
 
+  @Test
+  void reportHonoursRequestedDateFormat() {
+    ResponseBody r =
+        ok(
+            fineract("default")
+                .reportsRun
+                .runReportGetFile(
+                    "Expected Payments By Date - Formatted",
+                    Map.of(
+                        "tenantIdentifier",
+                        "default",
+                        "locale",
+                        "en",
+                        "dateFormat",
+                        "yyyy-MM-dd",
+                        "R_startDate",
+                        "2022-01-01",
+                        "R_endDate",
+                        "2023-01-02",
+                        "R_officeId",
+                        "1",
+                        "output-type",
+                        "PDF",
+                        "R_loanOfficerId",
+                        "-1")));
+    Truth.assertThat(r.contentType()).isEqualTo(MediaType.get("application/pdf"));
+  }
+
   /**
    * Verifies that a report is generated against the *requesting* tenant's database. The same report
    * is run for two different tenants; each must return that tenant's own data, so the (data) output
