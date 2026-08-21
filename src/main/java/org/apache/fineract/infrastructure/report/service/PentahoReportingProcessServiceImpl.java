@@ -201,7 +201,7 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
         reportEnvironment.setLocale(locale);
       }
 
-      addParametersToReport(masterReport, reportParams);
+      addParametersToReport(masterReport, reportParams, queryParams.getFirst("dateFormat"));
 
       List<SubReport> subReports = getSubReports(masterReport);
       for (SubReport subReport : subReports) {
@@ -262,7 +262,9 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
   }
 
   private void addParametersToReport(
-      final MasterReport report, final Map<String, String> queryParams) {
+      final MasterReport report,
+      final Map<String, String> queryParams,
+      final String dateFormatParam) {
     final var currentUser = this.context.authenticatedUser();
     try {
       final var rptParamValues = report.getParameterValues();
@@ -309,7 +311,10 @@ public class PentahoReportingProcessServiceImpl implements ReportingProcessServi
             logger.debug("ParamName: {}", paramName);
             logger.debug("ParamValue: {}", pValue.toString());
             String myDate = pValue.toString();
-            SimpleDateFormat sdf = new SimpleDateFormat("dd MMMM yyyy", Locale.ENGLISH);
+            final String datePattern =
+                StringUtils.isNotBlank(dateFormatParam) ? dateFormatParam : "dd MMMM yyyy";
+            SimpleDateFormat sdf = new SimpleDateFormat(datePattern, Locale.ENGLISH);
+            sdf.setLenient(false);
             Date date = sdf.parse(myDate);
             long millis = date.getTime();
             java.sql.Date mySQLDate = new java.sql.Date(millis);
