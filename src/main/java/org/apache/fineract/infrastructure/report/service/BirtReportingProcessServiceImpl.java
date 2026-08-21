@@ -13,7 +13,9 @@ import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -40,7 +42,6 @@ import org.eclipse.birt.report.engine.api.IReportRunnable;
 import org.eclipse.birt.report.engine.api.IRunTask;
 import org.eclipse.birt.report.model.api.ReportDesignHandle;
 import org.springframework.context.annotation.Primary;
-import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -71,7 +72,7 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
 
     @Override
     public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
-        reportSecurityService.checkReadReportPermission();
+        reportSecurityService.checkReportExecutionPermission(reportName);
         final String outputType = resolveOutputType(queryParams);
         final Locale locale = ApiParameterHelper.extractLocale(queryParams);
         final Map<String, String> reportParams = getReportParams(reportName, queryParams);
@@ -108,15 +109,15 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
         try {
             transactionTemplate.execute(status -> {
                 IRunTask runTask = null;
-                Connection springConnection = null;
+                Connection birtConnection = null;
                 try {
                     final IReportRunnable design = reportExecutionFactory.createExecutionRunnable(reportName, locale);
                     final ReportDesignHandle designHandle = (ReportDesignHandle) design.getDesignHandle();
                     sqlDialectInterpolator.interpolate(designHandle);
                     runTask = reportEngine.createRunTask(design);
                     runTask.setErrorHandlingOption(IEngineTask.CANCEL_ON_ERROR);
-                    springConnection = DataSourceUtils.getConnection(dataSource);
-                    setConnectionDetail(runTask, springConnection);
+                    birtConnection = openReadOnlyConnection();
+                    setConnectionDetail(runTask, birtConnection);
                     configureLocale(runTask, locale);
                     parameterMapper.applyParameters(runTask, reportParams);
                     contextInjector.injectContextParameters(runTask);
@@ -147,11 +148,11 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
                         closeQuietly(runTask::close);
                     }
                     /*
-                     * Do not explicitly close the tenant connection here.
-                     *
-                     * The connection is owned by Spring's transaction
-                     * infrastructure and DataSourceUtils.
+                     * The BIRT connection is not the Spring transaction's
+                     * connection, so this method owns its lifecycle. BIRT
+                     * only ever sees the close-proof proxy.
                      */
+                    releaseReadOnlyConnection(birtConnection);
                 }
             });
         } catch (PlatformDataIntegrityException e) {
@@ -283,7 +284,125 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
         return cleaned.trim();
     }
 
-    private void setConnectionDetail(IRunTask runTask, Connection springConnection) throws Exception {
+    /**
+     * Opens the JDBC connection that BIRT executes the report's embedded SQL on, and puts it in a
+     * read-only transaction before BIRT can use it.
+     *
+     * <p>The read-only flag of the surrounding {@link TransactionTemplate} does not reach this
+     * connection: Fineract's transaction manager is a {@code JpaTransactionManager}, which applies
+     * read-only to the persistence context only and never calls {@link Connection#setReadOnly}. The
+     * guard therefore has to be applied here, on the connection BIRT actually receives, so that the
+     * database refuses the write rather than the plugin trying to recognise one — SQL built at run
+     * time by a report script is invisible to any inspection of the design.
+     *
+     * <p>What the transaction does and does not cover. {@code INSERT}, {@code UPDATE} and
+     * {@code DELETE} are refused on both PostgreSQL and MySQL/MariaDB; DDL is refused on PostgreSQL
+     * only, because MySQL and MariaDB commit implicitly before it. It is not a containment boundary
+     * against a deliberately hostile {@code .rptdesign} either: a design that issues its own
+     * transaction control ({@code COMMIT} followed by {@code START TRANSACTION READ WRITE}) leaves
+     * the read-only transaction behind and can write.
+     *
+     * <p>The boundary that does hold is the database principal, configured per tenant — see
+     * {@link #openTenantReportConnection()}. The transaction stays regardless, because a tenant that
+     * has not configured one still gets the protection the transaction can give.
+     */
+    private Connection openReadOnlyConnection() throws SQLException {
+        final Connection connection = openTenantReportConnection();
+        try {
+            connection.setReadOnly(true);
+            connection.setAutoCommit(false);
+            beginReadOnlyTransaction(connection);
+            /*
+             * Opening the transaction here, with a statement of our own,
+             * closes the cheapest way out of it: a database stops accepting
+             * "SET TRANSACTION READ WRITE" once the transaction has taken
+             * its snapshot. Without this, the first statement of a report
+             * could be that, and a later one a write.
+             */
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("SELECT 1");
+            }
+            return connection;
+        } catch (SQLException e) {
+            closeQuietly(connection::close);
+            throw e;
+        }
+    }
+
+    /**
+     * Opens the connection reports run on, as the tenant's read-only database principal when one is
+     * configured.
+     *
+     * <p>A principal granted only {@code SELECT} is the one boundary a report cannot argue with: it
+     * refuses writes, DDL and {@code SET ROLE} alike, and unlike the read-only transaction it cannot
+     * be left behind by a report that opens a transaction of its own.
+     *
+     * <p>The credentials come from the tenant's existing {@code readonly_schema_*} columns, so this
+     * needs no new configuration surface — but those columns are empty in a stock deployment, and
+     * the principal still has to exist in the database. Until an operator sets both up, reports keep
+     * running on the ordinary tenant pool with only the read-only transaction protecting them.
+     * Fields left blank fall back to the read-write ones, so the common case of one database and a
+     * restricted role needs only a username and password.
+     */
+    private Connection openTenantReportConnection() throws SQLException {
+        final FineractPlatformTenantConnection tenantConnection = requireTenantConnection();
+        final String readOnlyUsername = tenantConnection.getReadOnlySchemaUsername();
+
+        if (StringUtils.isBlank(readOnlyUsername)) {
+            return dataSource.getConnection();
+        }
+
+        final String driverClassName =
+                org.apache.fineract.infrastructure.report.util.DataSourceUtils.getDriverClassName(dataSource);
+        final String jdbcUrl = FineractPlatformTenantConnection.toJdbcUrl(
+                FineractPlatformTenantConnection.resolveProtocol(driverClassName),
+                StringUtils.defaultIfBlank(
+                        tenantConnection.getReadOnlySchemaServer(), tenantConnection.getSchemaServer()),
+                StringUtils.defaultIfBlank(
+                        tenantConnection.getReadOnlySchemaServerPort(), tenantConnection.getSchemaServerPort()),
+                StringUtils.defaultIfBlank(tenantConnection.getReadOnlySchemaName(), tenantConnection.getSchemaName()),
+                StringUtils.defaultIfBlank(
+                        tenantConnection.getReadOnlySchemaConnectionParameters(),
+                        tenantConnection.getSchemaConnectionParameters()));
+
+        log.debug("Running BIRT report as the tenant's read-only database principal {}", readOnlyUsername);
+        return DriverManager.getConnection(
+                jdbcUrl,
+                readOnlyUsername,
+                databasePasswordEncryptor.decrypt(
+                        StringUtils.trimToEmpty(tenantConnection.getReadOnlySchemaPassword())));
+    }
+
+    /**
+     * Starts the read-only transaction on databases whose driver will not start one.
+     *
+     * <p>{@link Connection#setReadOnly} is enough on PostgreSQL, whose driver opens every transaction
+     * with {@code BEGIN READ ONLY}. The MySQL and MariaDB drivers treat it as a replica-routing hint
+     * and let every write through untouched, so there the transaction has to be opened explicitly.
+     *
+     * <p>Deliberately a transaction-scoped statement rather than a session-scoped one: the connection
+     * goes back to a pool that Fineract writes through, and {@code SET SESSION} would still be in
+     * effect when the next borrower picks it up.
+     */
+    private void beginReadOnlyTransaction(Connection connection) throws SQLException {
+        final String jdbcUrl = connection.getMetaData().getURL();
+        if (StringUtils.startsWith(jdbcUrl, "jdbc:postgresql")) {
+            return;
+        }
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("START TRANSACTION READ ONLY");
+        }
+    }
+
+    private void releaseReadOnlyConnection(Connection connection) {
+        if (connection == null) {
+            return;
+        }
+        closeQuietly(connection::rollback);
+        closeQuietly(connection::close);
+    }
+
+    private FineractPlatformTenantConnection requireTenantConnection() {
         final FineractPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
         if (tenant == null) {
             throw new PlatformDataIntegrityException(
@@ -295,22 +414,28 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
                     SQL_ERROR_CODE,
                     "Unable to execute BIRT report because the tenant database connection is unavailable.");
         }
-        final String jdbcUrl = springConnection.getMetaData().getURL();
+        return tenantConnection;
+    }
+
+    private void setConnectionDetail(IRunTask runTask, Connection birtConnection) throws Exception {
+        requireTenantConnection();
+        final String jdbcUrl = birtConnection.getMetaData().getURL();
         final String driverClassName =
                 org.apache.fineract.infrastructure.report.util.DataSourceUtils.getDriverClassName(dataSource);
         runTask.getAppContext().put("OdaJDBCDriverClass", driverClassName);
         runTask.getAppContext().put("OdaJDBCDriverUrl", jdbcUrl);
-        runTask.getAppContext().put("OdaJDBCDriverUser", tenantConnection.getSchemaUsername());
-        runTask.getAppContext()
-                .put(
-                        "OdaJDBCDriverPassword",
-                        databasePasswordEncryptor.decrypt(
-                                tenantConnection.getSchemaPassword().trim()));
         /*
-         * The connection belongs to the current Fineract tenant
-         * transaction. BIRT must not close it.
+         * No credentials are published to the report's app context. BIRT's
+         * JDBC ODA driver takes the pass-in connection and returns before it
+         * ever looks at a user or password, so entries for them would only
+         * put the tenant's decrypted database password in a map that report
+         * scripts can reach — and would now name the wrong principal.
          */
-        final Connection safeConnection = wrapConnectionToPreventClose(springConnection);
+        /*
+         * BIRT must not close the connection, nor take it out of the
+         * read-only transaction it was opened in.
+         */
+        final Connection safeConnection = wrapConnectionToPreventClose(birtConnection);
         runTask.getAppContext().put("OdaJDBCDriverPassInConnection", safeConnection);
         runTask.getAppContext().put("OdaJDBCDriverPassInConnectionCloseAfterUse", false);
     }
@@ -325,6 +450,10 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
                     }
                     if ("isClosed".equals(methodName)) {
                         return false;
+                    }
+                    if ("setReadOnly".equals(methodName) || "setAutoCommit".equals(methodName)) {
+                        log.debug("Ignored BIRT attempt to call {} on the read-only report connection.", methodName);
+                        return null;
                     }
                     try {
                         return method.invoke(connection, args);
@@ -355,12 +484,27 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
         final Map<String, String> params = new HashMap<>();
         queryParams.keySet().stream().filter(key -> key.startsWith("R_")).forEach(key -> {
             final String parameterName = key.substring(2);
+            rejectServerManagedParameter(parameterName);
             final String value = queryParams.getFirst(key);
             if (StringUtils.isNotBlank(value)) {
                 params.put(parameterName, value);
             }
         });
         return params;
+    }
+
+    /**
+     * Rejects a request that tries to supply a parameter the server derives from the authenticated
+     * user. Dropping such a value silently would leave the caller believing the scope they asked for
+     * was applied, so the request fails instead.
+     */
+    private void rejectServerManagedParameter(String parameterName) {
+        if (BirtParameterMapper.SERVER_MANAGED_PARAMETERS.contains(parameterName.toLowerCase(Locale.ROOT))) {
+            throw new PlatformDataIntegrityException(
+                    "error.msg.reporting.parameter.not.allowed",
+                    "Parameter '" + parameterName
+                            + "' is derived from the authenticated user and cannot be supplied by the client.");
+        }
     }
 
     @Override

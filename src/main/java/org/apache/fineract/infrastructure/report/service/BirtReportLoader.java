@@ -7,6 +7,9 @@
 package org.apache.fineract.infrastructure.report.service;
 
 import java.io.File;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import lombok.RequiredArgsConstructor;
@@ -66,8 +69,7 @@ public class BirtReportLoader {
         if (!reportFile.exists()) {
             log.error("Report design file not found: {}", reportPath);
             throw reportErrorHandler.reportError(
-                    "error.msg.reporting.report.not.found",
-                    "Report file not found: " + reportName + " at path: " + reportPath);
+                    "error.msg.reporting.report.not.found", "Report file not found: " + reportName);
         }
 
         if (!reportFile.canRead()) {
@@ -143,20 +145,34 @@ public class BirtReportLoader {
                 locale != null ? locale.getLanguage() : "en");
     }
 
-    /** Builds the full path to the .rptdesign file, supporting locale-specific variants. */
+    /**
+     * Builds the full path to the .rptdesign file, supporting locale-specific variants.
+     *
+     * <p>The report name reaches this method straight from the request path, so the resolved file has
+     * to be confined to the reports directory: anything that escapes it is rejected as not found.
+     */
     private String buildReportPath(String reportName, java.util.Locale locale) {
-        String baseDir = getBaseReportsDirectory();
-
-        // Ensure trailing separator
-        if (!baseDir.endsWith(File.separator)) {
-            baseDir += File.separator;
-        }
+        Path baseDir = Paths.get(getBaseReportsDirectory()).toAbsolutePath().normalize();
 
         String languageTag = (locale != null && !"en".equalsIgnoreCase(locale.getLanguage()))
                 ? "_" + locale.getLanguage().toLowerCase()
                 : "";
 
-        return baseDir + reportName + languageTag + ".rptdesign";
+        Path reportPath;
+        try {
+            reportPath =
+                    baseDir.resolve(reportName + languageTag + ".rptdesign").normalize();
+        } catch (InvalidPathException e) {
+            reportPath = null;
+        }
+
+        if (reportPath == null || !reportPath.startsWith(baseDir)) {
+            log.error("Rejected BIRT report name resolving outside the reports directory: {}", reportName);
+            throw reportErrorHandler.reportError(
+                    "error.msg.reporting.report.not.found", "Report file not found: " + reportName);
+        }
+
+        return reportPath.toString();
     }
 
     /** Returns the base directory for BIRT reports. Priority: Configured path → Default directory */

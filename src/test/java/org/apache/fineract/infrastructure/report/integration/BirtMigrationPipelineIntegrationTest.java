@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.apache.fineract.infrastructure.report.service.BirtParameterMapper;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -103,13 +104,20 @@ public class BirtMigrationPipelineIntegrationTest extends BirtIntegrationTestBas
             String pName = m.group(1);
             String lowerName = pName.toLowerCase();
 
+            /*
+             * userid and userhierarchy are injected from the authenticated
+             * user, and a request that supplies them is now rejected. Sending
+             * them here would ask the server for a scope the caller chose.
+             */
+            if (BirtParameterMapper.SERVER_MANAGED_PARAMETERS.contains(lowerName)) {
+                continue;
+            }
+
             String value;
             if (lowerName.contains("date")) {
                 value = "01 January 2010";
             } else if (lowerName.contains("url")) {
                 value = "https://localhost";
-            } else if (lowerName.contains("hierarchy")) {
-                value = ".";
             } else if (lowerName.contains("officer")
                     || lowerName.contains("purpose")
                     || lowerName.contains("product")

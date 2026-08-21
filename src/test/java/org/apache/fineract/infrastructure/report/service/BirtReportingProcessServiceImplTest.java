@@ -8,6 +8,7 @@ package org.apache.fineract.infrastructure.report.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -15,9 +16,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,6 +29,8 @@ import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,11 +54,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
@@ -113,11 +118,11 @@ class BirtReportingProcessServiceImplTest {
     @InjectMocks
     private BirtReportingProcessServiceImpl service;
 
-    private MockedStatic<DataSourceUtils> mockedDataSourceUtils;
     private MockedStatic<ThreadLocalContextUtil> mockedThreadLocalContextUtil;
     private MockedStatic<org.apache.fineract.infrastructure.report.util.DataSourceUtils> mockedReportDataSourceUtils;
 
     private Connection mockConnection;
+    private FineractPlatformTenantConnection tenantConnection;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -137,18 +142,12 @@ class BirtReportingProcessServiceImplTest {
         DatabaseMetaData metaData = mock(DatabaseMetaData.class);
         lenient().when(mockConnection.getMetaData()).thenReturn(metaData);
         lenient().when(metaData.getURL()).thenReturn("jdbc:postgresql://localhost:5432/fineract_tenant");
-
-        mockedDataSourceUtils = mockStatic(DataSourceUtils.class);
-        mockedDataSourceUtils
-                .when(() -> DataSourceUtils.getConnection(any(DataSource.class)))
-                .thenReturn(mockConnection);
-        mockedDataSourceUtils
-                .when(() -> DataSourceUtils.releaseConnection(any(Connection.class), any(DataSource.class)))
-                .thenAnswer(i -> null);
+        lenient().when(mockConnection.createStatement()).thenReturn(mock(Statement.class));
+        lenient().when(dataSource.getConnection()).thenReturn(mockConnection);
 
         // Mock Tenant Context
         FineractPlatformTenant tenant = mock(FineractPlatformTenant.class);
-        FineractPlatformTenantConnection tenantConnection = mock(FineractPlatformTenantConnection.class);
+        tenantConnection = mock(FineractPlatformTenantConnection.class);
         lenient().when(tenant.getConnection()).thenReturn(tenantConnection);
         lenient().when(tenant.getTenantIdentifier()).thenReturn("default");
         lenient().when(tenantConnection.getSchemaUsername()).thenReturn("tenant_user");
@@ -166,9 +165,6 @@ class BirtReportingProcessServiceImplTest {
 
     @AfterEach
     void tearDown() {
-        if (mockedDataSourceUtils != null) {
-            mockedDataSourceUtils.close();
-        }
         if (mockedThreadLocalContextUtil != null) {
             mockedThreadLocalContextUtil.close();
         }
@@ -325,8 +321,14 @@ class BirtReportingProcessServiceImplTest {
         // Verify the setConnectionDetail logic successfully populated the appContext
         assertEquals("org.postgresql.Driver", appContext.get("OdaJDBCDriverClass"));
         assertEquals("jdbc:postgresql://localhost:5432/fineract_tenant", appContext.get("OdaJDBCDriverUrl"));
-        assertEquals("tenant_user", appContext.get("OdaJDBCDriverUser"));
-        assertEquals("decrypted_pass", appContext.get("OdaJDBCDriverPassword"));
+
+        /*
+         * No credentials: BIRT takes the pass-in connection and returns before
+         * reading a user or password, so publishing them would only expose the
+         * tenant's decrypted database password to report scripts.
+         */
+        assertNull(appContext.get("OdaJDBCDriverUser"));
+        assertNull(appContext.get("OdaJDBCDriverPassword"));
 
         org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(
                 reportExecutionFactory, sqlDialectInterpolator, parameterMapper, contextInjector, task, pdfRenderer);
@@ -412,6 +414,172 @@ class BirtReportingProcessServiceImplTest {
         assertThrows(PlatformDataIntegrityException.class, () -> service.processRequest("sample", queryParams("PDF")));
 
         verify(task).close();
+    }
+
+    @Test
+    @DisplayName("Should reject a client-supplied userid instead of dropping it silently")
+    void shouldRejectClientSuppliedUserId() {
+        MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
+        params.add("R_userid", "1");
+
+        PlatformDataIntegrityException ex =
+                assertThrows(PlatformDataIntegrityException.class, () -> service.getReportParams("sample", params));
+
+        assertEquals("error.msg.reporting.parameter.not.allowed", ex.getGlobalisationMessageCode());
+    }
+
+    @Test
+    @DisplayName("Should reject a client-supplied userhierarchy whatever its casing")
+    void shouldRejectClientSuppliedUserHierarchy() {
+        MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
+        params.add("R_userHierarchy", ".");
+
+        PlatformDataIntegrityException ex =
+                assertThrows(PlatformDataIntegrityException.class, () -> service.getReportParams("sample", params));
+
+        assertEquals("error.msg.reporting.parameter.not.allowed", ex.getGlobalisationMessageCode());
+    }
+
+    @Test
+    @DisplayName("Should verify the report grant before anything is loaded or executed")
+    void shouldCheckPermissionBeforeExecuting() {
+        doThrow(new PlatformDataIntegrityException("error.denied", "denied"))
+                .when(reportSecurityService)
+                .checkReportExecutionPermission("sample");
+
+        assertThrows(PlatformDataIntegrityException.class, () -> service.processRequest("sample", queryParams("PDF")));
+
+        verify(reportExecutionFactory, never()).createExecutionRunnable(anyString(), any());
+    }
+
+    @Test
+    @DisplayName("Should hand BIRT a connection the database will not accept writes on")
+    void shouldGiveBirtAReadOnlyConnection() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
+        HashMap<String, Object> appContext = new HashMap<>();
+        Statement statement = mock(Statement.class);
+
+        when(mockConnection.createStatement()).thenReturn(statement);
+        when(task.getAppContext()).thenReturn(appContext);
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+        when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenReturn(Response.ok().type("application/pdf").build());
+
+        service.processRequest("sample", queryParams("PDF"));
+
+        InOrder inOrder = inOrder(mockConnection, statement, task);
+        inOrder.verify(mockConnection).setReadOnly(true);
+        inOrder.verify(mockConnection).setAutoCommit(false);
+        // pins the read-only state: a database stops accepting READ WRITE once a query has run
+        inOrder.verify(statement).execute("SELECT 1");
+        inOrder.verify(task).run(anyString());
+
+        verify(mockConnection).close();
+        // PostgreSQL's driver opens the transaction read-only by itself
+        verify(statement, never()).execute("START TRANSACTION READ ONLY");
+    }
+
+    @Test
+    @DisplayName("Should open the read-only transaction explicitly on MySQL/MariaDB")
+    void shouldStartReadOnlyTransactionExplicitlyOnMariaDb() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
+        HashMap<String, Object> appContext = new HashMap<>();
+        Statement statement = mock(Statement.class);
+
+        when(mockConnection.getMetaData().getURL()).thenReturn("jdbc:mariadb://localhost:3306/fineract_tenant");
+        when(mockConnection.createStatement()).thenReturn(statement);
+        when(task.getAppContext()).thenReturn(appContext);
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+        when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenReturn(Response.ok().type("application/pdf").build());
+
+        service.processRequest("sample", queryParams("PDF"));
+
+        InOrder inOrder = inOrder(mockConnection, statement);
+        inOrder.verify(mockConnection).setAutoCommit(false);
+        // MariaDB's driver treats setReadOnly as a routing hint, so the transaction is opened by hand
+        inOrder.verify(statement).execute("START TRANSACTION READ ONLY");
+        inOrder.verify(statement).execute("SELECT 1");
+    }
+
+    @Test
+    @DisplayName("Should apply the server-derived user context after the client parameters")
+    void shouldInjectServerContextAfterClientParameters() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
+        HashMap<String, Object> appContext = new HashMap<>();
+
+        when(task.getAppContext()).thenReturn(appContext);
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+        when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenReturn(Response.ok().type("application/pdf").build());
+
+        service.processRequest("sample", queryParams("PDF"));
+
+        InOrder inOrder = inOrder(parameterMapper, contextInjector, task);
+        inOrder.verify(parameterMapper).applyParameters(eq(task), any());
+        inOrder.verify(contextInjector).injectContextParameters(task);
+        inOrder.verify(task).run(anyString());
+    }
+
+    @Test
+    @DisplayName("Should run reports as the tenant's read-only principal when one is configured")
+    void shouldUseReadOnlyPrincipalWhenConfigured() throws Exception {
+        when(tenantConnection.getReadOnlySchemaUsername()).thenReturn("birt_ro");
+        when(tenantConnection.getReadOnlySchemaPassword()).thenReturn("encrypted_ro ");
+        when(tenantConnection.getReadOnlySchemaServer()).thenReturn("replica");
+        when(tenantConnection.getReadOnlySchemaServerPort()).thenReturn("5432");
+        when(tenantConnection.getReadOnlySchemaName()).thenReturn("fineract_default");
+        when(databasePasswordEncryptor.decrypt("encrypted_ro")).thenReturn("ro_pass");
+
+        try (MockedStatic<DriverManager> driverManager = mockStatic(DriverManager.class)) {
+            driverManager
+                    .when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
+                    .thenReturn(mockConnection);
+
+            runReport();
+
+            driverManager.verify(() -> DriverManager.getConnection(
+                    "jdbc:postgresql://replica:5432/fineract_default", "birt_ro", "ro_pass"));
+        }
+        verify(dataSource, never()).getConnection();
+    }
+
+    @Test
+    @DisplayName("Should fall back to the tenant pool when no read-only principal is configured")
+    void shouldFallBackToTenantPoolWhenNoReadOnlyPrincipal() throws Exception {
+        when(tenantConnection.getReadOnlySchemaUsername()).thenReturn("");
+
+        runReport();
+
+        verify(dataSource).getConnection();
+    }
+
+    /** Drives one successful PDF report execution with the common BIRT mocks in place. */
+    private void runReport() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
+
+        when(task.getAppContext()).thenReturn(new HashMap<>());
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+        when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenReturn(Response.ok().type("application/pdf").build());
+
+        service.processRequest("sample", queryParams("PDF"));
     }
 
     private BirtRenderer getRendererForType(String outputType) {

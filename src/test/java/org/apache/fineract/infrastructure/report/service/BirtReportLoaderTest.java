@@ -7,10 +7,13 @@
 package org.apache.fineract.infrastructure.report.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.file.Files;
@@ -95,5 +98,43 @@ class BirtReportLoaderTest {
 
         IReportRunnable report = reportLoader.loadReport("sample", java.util.Locale.forLanguageTag("es"));
         assertNotNull(report);
+    }
+
+    @Test
+    @DisplayName("Should reject a report name that climbs out of the reports directory")
+    void shouldRejectReportNameEscapingTheReportsDirectory() throws Exception {
+        Path outside = tempDir.getParent().resolve("outside.rptdesign");
+        Files.writeString(outside, "<?xml version=\"1.0\"?><report></report>");
+
+        PlatformDataIntegrityException ex =
+                assertThrows(PlatformDataIntegrityException.class, () -> reportLoader.loadReport("../outside", null));
+
+        assertEquals("error.msg.reporting.report.not.found", ex.getGlobalisationMessageCode());
+        verify(reportEngine, never()).openReportDesign(anyString());
+    }
+
+    @Test
+    @DisplayName("Should reject an absolute report name")
+    void shouldRejectAbsoluteReportName() throws Exception {
+        Path outside = tempDir.getParent().resolve("absolute.rptdesign");
+        Files.writeString(outside, "<?xml version=\"1.0\"?><report></report>");
+
+        String absoluteName = outside.toString().replace(".rptdesign", "");
+
+        PlatformDataIntegrityException ex =
+                assertThrows(PlatformDataIntegrityException.class, () -> reportLoader.loadReport(absoluteName, null));
+
+        assertEquals("error.msg.reporting.report.not.found", ex.getGlobalisationMessageCode());
+        verify(reportEngine, never()).openReportDesign(anyString());
+    }
+
+    @Test
+    @DisplayName("Should not disclose the server filesystem path when a report is missing")
+    void shouldNotLeakFilesystemPathWhenReportIsMissing() {
+        PlatformDataIntegrityException ex =
+                assertThrows(PlatformDataIntegrityException.class, () -> reportLoader.loadReport("missing", null));
+
+        assertFalse(ex.getDefaultUserMessage().contains(tempDir.toString()));
+        assertFalse(ex.getDefaultUserMessage().contains(".rptdesign"));
     }
 }
