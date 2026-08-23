@@ -58,7 +58,69 @@ VALUES ((SELECT id FROM c_external_service WHERE name = 'BIRT'), 'reports_dir', 
 ON CONFLICT (external_service_id, name) DO UPDATE SET value = EXCLUDED.value;
 ```
 
-### 4. Export the Required Variables
+### 4. Configure a Read-Only Report Principal (Recommended)
+
+The SQL embedded in a `.rptdesign` runs against the tenant database on the connection the plugin hands to Eclipse BIRT®. That connection is opened read-only and screened for transaction control, but `.rptdesign` files are trusted, administrator-installed artefacts and neither measure is a sandbox. **A database account granted only `SELECT` is what actually stops a report writing to the tenant database.**
+
+When `tenant_server_connections.readonly_schema_username` is set, reports connect as that principal instead of the tenant's read-write one. Those columns are empty in a stock deployment, in which case reports keep running on the ordinary tenant connection with only the read-only transaction protecting them.
+
+The examples below use the stock names — tenant database `fineract_default`, tenant store database `fineract_tenants`, tenant identifier `default`. Substitute your own wherever they differ.
+
+**1. Create the principal** in the tenant database (PostgreSQL® shown):
+
+```sql
+CREATE ROLE fineract_report LOGIN PASSWORD '<password>';
+GRANT CONNECT ON DATABASE fineract_default TO fineract_report;
+GRANT USAGE ON SCHEMA public TO fineract_report;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO fineract_report;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO fineract_report;
+```
+
+**2a. Point the tenant at it — new deployments.** On a tenant store that has not been created yet, Apache Fineract® fills these columns from environment variables at its first Liquibase run and encrypts the password itself:
+
+```bash
+export FINERACT_DEFAULT_TENANTDB_RO_UID=fineract_report
+export FINERACT_DEFAULT_TENANTDB_RO_PWD='<password>'
+# only when the read-only principal is on a different host or database
+export FINERACT_DEFAULT_TENANTDB_RO_HOSTNAME=
+export FINERACT_DEFAULT_TENANTDB_RO_PORT=
+export FINERACT_DEFAULT_TENANTDB_RO_NAME=
+export FINERACT_DEFAULT_TENANTDB_RO_CONN_PARAMS=
+```
+
+This applies only while `readonly_schema_username`, `readonly_schema_password` and `readonly_schema_name` are all still `NULL` on connection `id = 1`. On an existing deployment, use 2b.
+
+**2b. Point the tenant at it — existing deployments.** `readonly_schema_password` has to be stored **encrypted**, exactly like `schema_password`. A blank or plaintext value fails the report with `error.msg.reporting.readonly.password.missing` or `error.msg.reporting.readonly.password.not.encrypted`.
+
+Encrypt it with Apache Fineract®'s own encryptor, passing the master password from `fineract.tenant.master-password` (`FINERACT_DEFAULT_TENANTDB_MASTER_PASSWORD`, default `fineract`):
+
+```bash
+java -cp fineract-provider.jar \
+  -Dloader.main=org.apache.fineract.infrastructure.core.service.database.DatabasePasswordEncryptor \
+  org.springframework.boot.loader.launch.PropertiesLauncher <masterPassword> <password>
+```
+
+Then store it, in the tenant store database (`fineract_tenants`):
+
+```sql
+UPDATE tenant_server_connections
+SET readonly_schema_username = 'fineract_report',
+    readonly_schema_password = '<encrypted password>'
+WHERE id = (SELECT oltp_id FROM tenants WHERE identifier = 'default');
+```
+
+`readonly_schema_server`, `readonly_schema_server_port`, `readonly_schema_name` and `readonly_schema_connection_parameters` fall back to their read-write counterparts when left blank, so a restricted role on the same database needs only a username and a password. Set them when the read-only principal lives on a replica.
+
+**3. Restart Apache Fineract®** so the tenant configuration is re-read. On a first-time install, section 9 already covers this.
+
+Reports run as this principal borrow from a connection pool of their own, bounded by:
+
+| Property | Default | Purpose |
+| --- | --- | --- |
+| `mifos.birt.read-only-pool-max-size` | `5` | Connections the read-only principal may hold at once |
+| `mifos.birt.read-only-connection-timeout-millis` | `10000` | How long a report waits for one before failing |
+
+### 5. Export the Required Variables
 
 ```bash
 export MIFOS_BIRT_REPORTS_LOCALE=en
@@ -67,13 +129,22 @@ export MIFOS_BIRT_REPORTS_FONTS_PATH=/app/birt/fonts
 export MIFOS_BIRT_REPORTS_FONTS_CONFIG_PATH=/app/birt/config
 ```
 
-### 5. Security & User Permissions
+### 6. Security & User Permissions
 
-To execute reports, the authenticated user role must have the `READ_REPORT` permission enabled, along with the specific permission for the report being requested (e.g., `READ_ACTIVE_LOANS_DETAILS`).
+To execute a report, the authenticated user's role must hold one of the following permissions:
 
-For administrative accounts, the `ALL_FUNCTIONS` superuser permission grants access by default.
+| Permission | Grants |
+| --- | --- |
+| `READ_<reportName>` | That one report, e.g. `READ_Active_Loans_Details` for `/runreports/Active_Loans_Details` |
+| `REPORTING_SUPER_USER` | Every report |
+| `ALL_FUNCTIONS_READ` | Every report, along with every other read operation |
+| `ALL_FUNCTIONS` | Everything (superuser) |
 
-### 6. Download the Mifos® Reporting Plugin
+The report name in `READ_<reportName>` is the `stretchy_report.report_name` value verbatim, including case and underscores. There is no generic `READ_REPORT` permission — granting it alone does not allow any report to run.
+
+This is the check Apache Fineract® itself applies at `/runreports`; the plugin applies it again in its own execution path, so scheduled report mailing jobs are checked the same way rather than running ungranted.
+
+### 7. Download the Mifos® Reporting Plugin
 
 Download the Mifos® Reporting Plugin and extract the files.
 
@@ -83,7 +154,7 @@ Download the Mifos® Reporting Plugin and extract the files.
 | --- | --- | --- |
 | TBD | TBD | TBD |
 
-### 7a. Docker® Installation
+### 8a. Docker® Installation
 
 **Execute this step only when using Docker®.**
 
@@ -104,7 +175,7 @@ volumes:
   - ./birt/config:/app/birt/config:ro
 ```
 
-### 7b. Apache Tomcat® Installation
+### 8b. Apache Tomcat® Installation
 
 **Execute this step only when using Apache Tomcat®.**
 
@@ -116,11 +187,11 @@ $TOMCAT_HOME/webapps/fineract-provider/WEB-INF/lib/
 
 > **Note:** This Mifos® Reporting Plugin currently works with Apache Tomcat® version **10+**.
 
-### 8. Restart Apache Fineract®
+### 9. Restart Apache Fineract®
 
 Restart Docker® or Apache Tomcat® depending on your deployment setup.
 
-### 9. Test the Mifos® Reports
+### 10. Test the Mifos® Reports
 
 After restarting Apache Fineract®, test the Mifos® reports to verify that the BIRT® reporting engine has been correctly registered and loaded.
 

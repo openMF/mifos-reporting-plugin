@@ -8,6 +8,8 @@ package org.apache.fineract.infrastructure.report.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -15,9 +17,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,15 +30,12 @@ import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
-import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
-import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
-import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
-import org.apache.fineract.infrastructure.core.service.database.DatabasePasswordEncryptor;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
 import org.apache.fineract.infrastructure.report.renderer.BirtRenderer;
@@ -49,11 +50,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
@@ -102,19 +103,17 @@ class BirtReportingProcessServiceImplTest {
     private BirtSqlDialectInterpolator sqlDialectInterpolator;
 
     @Mock
-    private DatabasePasswordEncryptor databasePasswordEncryptor;
-
-    @Mock
     private BirtRenderer xmlRenderer;
 
     @Mock
     private ReportSecurityService reportSecurityService;
 
+    @Mock
+    private BirtReadOnlyConnectionFactory connectionFactory;
+
     @InjectMocks
     private BirtReportingProcessServiceImpl service;
 
-    private MockedStatic<DataSourceUtils> mockedDataSourceUtils;
-    private MockedStatic<ThreadLocalContextUtil> mockedThreadLocalContextUtil;
     private MockedStatic<org.apache.fineract.infrastructure.report.util.DataSourceUtils> mockedReportDataSourceUtils;
 
     private Connection mockConnection;
@@ -137,26 +136,8 @@ class BirtReportingProcessServiceImplTest {
         DatabaseMetaData metaData = mock(DatabaseMetaData.class);
         lenient().when(mockConnection.getMetaData()).thenReturn(metaData);
         lenient().when(metaData.getURL()).thenReturn("jdbc:postgresql://localhost:5432/fineract_tenant");
-
-        mockedDataSourceUtils = mockStatic(DataSourceUtils.class);
-        mockedDataSourceUtils
-                .when(() -> DataSourceUtils.getConnection(any(DataSource.class)))
-                .thenReturn(mockConnection);
-        mockedDataSourceUtils
-                .when(() -> DataSourceUtils.releaseConnection(any(Connection.class), any(DataSource.class)))
-                .thenAnswer(i -> null);
-
-        // Mock Tenant Context
-        FineractPlatformTenant tenant = mock(FineractPlatformTenant.class);
-        FineractPlatformTenantConnection tenantConnection = mock(FineractPlatformTenantConnection.class);
-        lenient().when(tenant.getConnection()).thenReturn(tenantConnection);
-        lenient().when(tenant.getTenantIdentifier()).thenReturn("default");
-        lenient().when(tenantConnection.getSchemaUsername()).thenReturn("tenant_user");
-        lenient().when(tenantConnection.getSchemaPassword()).thenReturn("encrypted_pass ");
-        lenient().when(databasePasswordEncryptor.decrypt("encrypted_pass")).thenReturn("decrypted_pass");
-
-        mockedThreadLocalContextUtil = mockStatic(ThreadLocalContextUtil.class);
-        mockedThreadLocalContextUtil.when(ThreadLocalContextUtil::getTenant).thenReturn(tenant);
+        lenient().when(mockConnection.createStatement()).thenReturn(mock(Statement.class));
+        lenient().when(connectionFactory.open()).thenReturn(mockConnection);
 
         mockedReportDataSourceUtils = mockStatic(org.apache.fineract.infrastructure.report.util.DataSourceUtils.class);
         mockedReportDataSourceUtils
@@ -166,12 +147,6 @@ class BirtReportingProcessServiceImplTest {
 
     @AfterEach
     void tearDown() {
-        if (mockedDataSourceUtils != null) {
-            mockedDataSourceUtils.close();
-        }
-        if (mockedThreadLocalContextUtil != null) {
-            mockedThreadLocalContextUtil.close();
-        }
         if (mockedReportDataSourceUtils != null) {
             mockedReportDataSourceUtils.close();
         }
@@ -325,8 +300,14 @@ class BirtReportingProcessServiceImplTest {
         // Verify the setConnectionDetail logic successfully populated the appContext
         assertEquals("org.postgresql.Driver", appContext.get("OdaJDBCDriverClass"));
         assertEquals("jdbc:postgresql://localhost:5432/fineract_tenant", appContext.get("OdaJDBCDriverUrl"));
-        assertEquals("tenant_user", appContext.get("OdaJDBCDriverUser"));
-        assertEquals("decrypted_pass", appContext.get("OdaJDBCDriverPassword"));
+
+        /*
+         * No credentials: BIRT takes the pass-in connection and returns before
+         * reading a user or password, so publishing them would only expose the
+         * tenant's decrypted database password to report scripts.
+         */
+        assertNull(appContext.get("OdaJDBCDriverUser"));
+        assertNull(appContext.get("OdaJDBCDriverPassword"));
 
         org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(
                 reportExecutionFactory, sqlDialectInterpolator, parameterMapper, contextInjector, task, pdfRenderer);
@@ -412,6 +393,110 @@ class BirtReportingProcessServiceImplTest {
         assertThrows(PlatformDataIntegrityException.class, () -> service.processRequest("sample", queryParams("PDF")));
 
         verify(task).close();
+    }
+
+    /**
+     * Dropped rather than rejected. The value never reached the report anyway — the parameter mapper
+     * skips these names and the context injector overwrites them — so failing the request would turn
+     * a no-op into an outage for stored report mailing jobs that still carry {@code R_userhierarchy}.
+     */
+    @Test
+    @DisplayName("Should drop client-supplied server-managed parameters, whatever their casing")
+    void shouldDropClientSuppliedServerManagedParameters() {
+        MultivaluedMap<String, String> params = new MultivaluedHashMap<>();
+        params.add("R_userid", "1");
+        params.add("R_userHierarchy", ".");
+        params.add("R_officeId", "1");
+
+        Map<String, String> result = service.getReportParams("sample", params);
+
+        assertEquals(Map.of("officeId", "1"), result);
+    }
+
+    @Test
+    @DisplayName("Should verify the report grant before anything is loaded or executed")
+    void shouldCheckPermissionBeforeExecuting() {
+        doThrow(new PlatformDataIntegrityException("error.denied", "denied"))
+                .when(reportSecurityService)
+                .checkReportExecutionPermission("sample");
+
+        assertThrows(PlatformDataIntegrityException.class, () -> service.processRequest("sample", queryParams("PDF")));
+
+        verify(reportExecutionFactory, never()).createExecutionRunnable(anyString(), any());
+    }
+
+    /**
+     * The connection itself is {@code BirtReadOnlyConnectionFactory}'s business, and is covered
+     * there. What belongs here is that the service asks it for one, gives BIRT only the guarded
+     * view, and hands the connection back however the run ends.
+     */
+    @Test
+    @DisplayName("Should run the report on a connection from the factory and always hand it back")
+    void shouldRunOnAFactoryConnectionAndReleaseIt() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
+        HashMap<String, Object> appContext = new HashMap<>();
+        Connection guarded = mock(Connection.class);
+
+        when(task.getAppContext()).thenReturn(appContext);
+        when(connectionFactory.guard(mockConnection)).thenReturn(guarded);
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+        when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenReturn(Response.ok().type("application/pdf").build());
+
+        service.processRequest("sample", queryParams("PDF"));
+
+        InOrder inOrder = inOrder(connectionFactory, task);
+        inOrder.verify(connectionFactory).open();
+        inOrder.verify(task).run(anyString());
+        inOrder.verify(connectionFactory).release(mockConnection);
+
+        assertSame(guarded, appContext.get("OdaJDBCDriverPassInConnection"));
+        assertEquals(false, appContext.get("OdaJDBCDriverPassInConnectionCloseAfterUse"));
+    }
+
+    @Test
+    @DisplayName("Should hand the connection back when the report run fails")
+    void shouldReleaseTheConnectionWhenTheRunFails() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
+
+        when(task.getAppContext()).thenReturn(new HashMap<>());
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+        doThrow(new RuntimeException("boom")).when(task).run(anyString());
+
+        assertThrows(PlatformDataIntegrityException.class, () -> service.processRequest("sample", queryParams("PDF")));
+
+        verify(connectionFactory).release(mockConnection);
+    }
+
+    @Test
+    @DisplayName("Should apply the server-derived user context after the client parameters")
+    void shouldInjectServerContextAfterClientParameters() throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle designHandle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
+        HashMap<String, Object> appContext = new HashMap<>();
+
+        when(task.getAppContext()).thenReturn(appContext);
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(designHandle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+        when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenReturn(Response.ok().type("application/pdf").build());
+
+        service.processRequest("sample", queryParams("PDF"));
+
+        InOrder inOrder = inOrder(parameterMapper, contextInjector, task);
+        inOrder.verify(parameterMapper).applyParameters(eq(task), any());
+        inOrder.verify(contextInjector).injectContextParameters(task);
+        inOrder.verify(task).run(anyString());
     }
 
     private BirtRenderer getRendererForType(String outputType) {
