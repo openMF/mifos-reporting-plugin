@@ -8,8 +8,6 @@ package org.apache.fineract.infrastructure.report.service;
 
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -25,11 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.core.api.ApiParameterHelper;
-import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
-import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
-import org.apache.fineract.infrastructure.core.service.ThreadLocalContextUtil;
-import org.apache.fineract.infrastructure.core.service.database.DatabasePasswordEncryptor;
 import org.apache.fineract.infrastructure.dataqueries.data.ReportExportType;
 import org.apache.fineract.infrastructure.report.annotation.ReportService;
 import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
@@ -40,10 +34,8 @@ import org.eclipse.birt.report.engine.api.IReportRunnable;
 import org.eclipse.birt.report.engine.api.IRunTask;
 import org.eclipse.birt.report.model.api.ReportDesignHandle;
 import org.springframework.context.annotation.Primary;
-import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
@@ -66,12 +58,12 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     private final DataSource dataSource;
     private final PlatformTransactionManager transactionManager;
     private final BirtSqlDialectInterpolator sqlDialectInterpolator;
-    private final DatabasePasswordEncryptor databasePasswordEncryptor;
     private final ReportSecurityService reportSecurityService;
+    private final BirtReadOnlyConnectionFactory connectionFactory;
 
     @Override
     public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
-        reportSecurityService.checkReadReportPermission();
+        reportSecurityService.checkReportExecutionPermission(reportName);
         final String outputType = resolveOutputType(queryParams);
         final Locale locale = ApiParameterHelper.extractLocale(queryParams);
         final Map<String, String> reportParams = getReportParams(reportName, queryParams);
@@ -102,21 +94,37 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
 
     private void executeReportToDocument(
             String reportName, Locale locale, Map<String, String> reportParams, String documentPath) {
+        /*
+         * This transaction no longer scopes the report's own SQL: that runs
+         * on a separate connection this method opens and closes itself, and
+         * nothing set here reaches it. What is left inside it is Fineract's
+         * work around the report — loading the design, which reads the
+         * reports directory from c_external_service_properties, and reading
+         * the authenticated user for the context parameters — so it stays,
+         * read-only, for that.
+         *
+         * Nothing here marks it rollback-only. Every failure below leaves by
+         * throwing a PlatformDataIntegrityException, which is a
+         * RuntimeException, and TransactionTemplate.execute already rolls the
+         * transaction back for one of those. Marking it as well protected
+         * nothing and read as though it protected the report's SQL, which
+         * runs on a connection this transaction never sees.
+         */
         final TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
         transactionTemplate.setReadOnly(true);
         final AtomicReference<String> capturedSqlError = new AtomicReference<>();
         try {
-            transactionTemplate.execute(status -> {
+            transactionTemplate.execute(transactionStatus -> {
                 IRunTask runTask = null;
-                Connection springConnection = null;
+                Connection birtConnection = null;
                 try {
                     final IReportRunnable design = reportExecutionFactory.createExecutionRunnable(reportName, locale);
                     final ReportDesignHandle designHandle = (ReportDesignHandle) design.getDesignHandle();
                     sqlDialectInterpolator.interpolate(designHandle);
                     runTask = reportEngine.createRunTask(design);
                     runTask.setErrorHandlingOption(IEngineTask.CANCEL_ON_ERROR);
-                    springConnection = DataSourceUtils.getConnection(dataSource);
-                    setConnectionDetail(runTask, springConnection);
+                    birtConnection = connectionFactory.open();
+                    setConnectionDetail(runTask, birtConnection);
                     configureLocale(runTask, locale);
                     parameterMapper.applyParameters(runTask, reportParams);
                     contextInjector.injectContextParameters(runTask);
@@ -129,29 +137,26 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
                     final String birtSqlError = extractBirtTaskError(runTask);
                     if (StringUtils.isNotBlank(birtSqlError)) {
                         capturedSqlError.set(birtSqlError);
-                        markRollbackOnly(status);
                         throw createSqlException(birtSqlError);
                     }
                     return null;
                 } catch (PlatformDataIntegrityException e) {
-                    markRollbackOnly(status);
                     throw e;
                 } catch (Exception e) {
                     final String sqlErrorMessage = extractSqlErrorMessage(e);
                     capturedSqlError.set(sqlErrorMessage);
                     log.error("Failed to execute BIRT report [{}]: {}", reportName, sqlErrorMessage, e);
-                    markRollbackOnly(status);
                     throw createSqlException(sqlErrorMessage);
                 } finally {
                     if (runTask != null) {
                         closeQuietly(runTask::close);
                     }
                     /*
-                     * Do not explicitly close the tenant connection here.
-                     *
-                     * The connection is owned by Spring's transaction
-                     * infrastructure and DataSourceUtils.
+                     * The BIRT connection is not the Spring transaction's
+                     * connection, so this method owns its lifecycle. BIRT
+                     * only ever sees the close-proof proxy.
                      */
+                    connectionFactory.release(birtConnection);
                 }
             });
         } catch (PlatformDataIntegrityException e) {
@@ -283,61 +288,21 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
         return cleaned.trim();
     }
 
-    private void setConnectionDetail(IRunTask runTask, Connection springConnection) throws Exception {
-        final FineractPlatformTenant tenant = ThreadLocalContextUtil.getTenant();
-        if (tenant == null) {
-            throw new PlatformDataIntegrityException(
-                    SQL_ERROR_CODE, "Unable to execute BIRT report because no tenant context is available.");
-        }
-        final FineractPlatformTenantConnection tenantConnection = tenant.getConnection();
-        if (tenantConnection == null) {
-            throw new PlatformDataIntegrityException(
-                    SQL_ERROR_CODE,
-                    "Unable to execute BIRT report because the tenant database connection is unavailable.");
-        }
-        final String jdbcUrl = springConnection.getMetaData().getURL();
+    private void setConnectionDetail(IRunTask runTask, Connection birtConnection) throws Exception {
+        final String jdbcUrl = birtConnection.getMetaData().getURL();
         final String driverClassName =
                 org.apache.fineract.infrastructure.report.util.DataSourceUtils.getDriverClassName(dataSource);
         runTask.getAppContext().put("OdaJDBCDriverClass", driverClassName);
         runTask.getAppContext().put("OdaJDBCDriverUrl", jdbcUrl);
-        runTask.getAppContext().put("OdaJDBCDriverUser", tenantConnection.getSchemaUsername());
-        runTask.getAppContext()
-                .put(
-                        "OdaJDBCDriverPassword",
-                        databasePasswordEncryptor.decrypt(
-                                tenantConnection.getSchemaPassword().trim()));
         /*
-         * The connection belongs to the current Fineract tenant
-         * transaction. BIRT must not close it.
+         * No credentials go into the app context: BIRT takes the pass-in
+         * connection and returns before it looks at a user or password, and
+         * report scripts can read that map. The proxy stops BIRT closing the
+         * connection or leaving its read-only transaction.
          */
-        final Connection safeConnection = wrapConnectionToPreventClose(springConnection);
+        final Connection safeConnection = connectionFactory.guard(birtConnection);
         runTask.getAppContext().put("OdaJDBCDriverPassInConnection", safeConnection);
         runTask.getAppContext().put("OdaJDBCDriverPassInConnectionCloseAfterUse", false);
-    }
-
-    private Connection wrapConnectionToPreventClose(Connection connection) {
-        return (Connection) Proxy.newProxyInstance(
-                Connection.class.getClassLoader(), new Class<?>[] {Connection.class}, (proxy, method, args) -> {
-                    final String methodName = method.getName();
-                    if ("close".equals(methodName)) {
-                        log.debug("Prevented BIRT from closing the Spring-managed tenant connection.");
-                        return null;
-                    }
-                    if ("isClosed".equals(methodName)) {
-                        return false;
-                    }
-                    try {
-                        return method.invoke(connection, args);
-                    } catch (InvocationTargetException e) {
-                        throw e.getTargetException();
-                    }
-                });
-    }
-
-    private void markRollbackOnly(TransactionStatus status) {
-        if (status != null && !status.isCompleted()) {
-            status.setRollbackOnly();
-        }
     }
 
     private Response renderReport(String reportName, String outputType, String documentPath) {
@@ -355,12 +320,33 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
         final Map<String, String> params = new HashMap<>();
         queryParams.keySet().stream().filter(key -> key.startsWith("R_")).forEach(key -> {
             final String parameterName = key.substring(2);
+            if (isServerManagedParameter(parameterName)) {
+                return;
+            }
             final String value = queryParams.getFirst(key);
             if (StringUtils.isNotBlank(value)) {
                 params.put(parameterName, value);
             }
         });
         return params;
+    }
+
+    /**
+     * Drops a parameter the server derives from the authenticated user, and says so in the log.
+     *
+     * <p>The value is dropped, and was already unreachable before this: {@link
+     * BirtParameterMapper#applyParameters} skips these names, and the context injector overwrites
+     * both afterwards. Failing the request instead would turn a no-op into an outage for callers
+     * that still send them — stored {@code stretchy_report_param_map} entries carrying the
+     * Pentaho-era {@code R_userhierarchy} reach this through report mailing jobs, where the failure
+     * would happen in a background run with nobody watching.
+     */
+    private boolean isServerManagedParameter(String parameterName) {
+        if (!BirtParameterMapper.SERVER_MANAGED_PARAMETERS.contains(parameterName.toLowerCase(Locale.ROOT))) {
+            return false;
+        }
+        log.warn("Ignoring client-supplied parameter '{}': it is derived from the authenticated user.", parameterName);
+        return true;
     }
 
     @Override

@@ -37,8 +37,11 @@ public class BirtParameterMapper {
     private final ReportErrorHandler reportErrorHandler;
     private final IReportEngine reportEngine;
 
-    // Injected separately by BirtContextInjector – never required from the client
-    private static final Set<String> SERVER_MANAGED_PARAMETERS = Set.of("userhierarchy", "userid");
+    /**
+     * Parameters that carry the caller's identity. They are derived from the authenticated user by
+     * {@link BirtContextInjector} and are never accepted from the client.
+     */
+    public static final Set<String> SERVER_MANAGED_PARAMETERS = Set.of("userhierarchy", "userid");
 
     /**
      * Validates and applies report parameters to the BIRT run task.

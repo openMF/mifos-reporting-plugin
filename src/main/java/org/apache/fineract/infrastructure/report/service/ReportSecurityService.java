@@ -7,60 +7,38 @@
  */
 package org.apache.fineract.infrastructure.report.service;
 
-import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import lombok.RequiredArgsConstructor;
+import org.apache.fineract.infrastructure.security.exception.NoAuthorizationException;
+import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.useradministration.domain.AppUser;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class ReportSecurityService {
 
-    /**
-     * Apache Fineract permission required to execute reports.
-     */
-    private static final String ALL_FUNCTIONS = "ALL_FUNCTIONS";
-
-    public static final String READ_REPORT_PERMISSION = "READ_REPORT";
-
-    private static final String ERROR_CODE = "error.msg.reporting.permission.denied";
+    private final PlatformSecurityContext securityContext;
 
     /**
-     * Verifies that the currently authenticated Apache Fineract user is authorized to read reports.
+     * Verifies that the authenticated Apache Fineract user is granted the report that is about to be
+     * executed.
      *
-     * <p>The check is deliberately performed before report loading, BIRT execution, datasource
-     * access, and SQL execution.
+     * <p>The user is taken from {@link PlatformSecurityContext}, never from the request, and the
+     * grants are the ones Apache Fineract itself requires to run a report ({@code READ_<reportName>},
+     * {@code REPORTING_SUPER_USER}, {@code ALL_FUNCTIONS} or {@code ALL_FUNCTIONS_READ}).
      *
-     * @throws PlatformDataIntegrityException when the authenticated user does not have
-     *         {@code READ_REPORT}
+     * <p>The check is deliberately performed inside {@code processRequest}, before report loading,
+     * BIRT execution and SQL execution, because that is the only point every caller passes through:
+     * the {@code /runreports} resource checks the grant itself, but the report mailing job does not.
+     *
+     * @throws NoAuthorizationException when the authenticated user is not granted the report
      */
-    public void checkReadReportPermission() {
+    public void checkReportExecutionPermission(final String reportName) {
 
-        final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        final AppUser currentUser = securityContext.authenticatedUser();
 
-        if (!isAuthenticated(authentication)) {
-            throw new PlatformDataIntegrityException(
-                    ERROR_CODE, "The authenticated user is not authorized to execute reports.");
+        if (currentUser.hasNotPermissionForReport(reportName)) {
+            throw new NoAuthorizationException("Not authorised to run report: " + reportName);
         }
-
-        if (!hasReadReportPermission(authentication)) {
-            throw new PlatformDataIntegrityException(
-                    ERROR_CODE, "The authenticated user does not have the READ_REPORT permission.");
-        }
-    }
-
-    private boolean isAuthenticated(Authentication authentication) {
-
-        return authentication != null && authentication.isAuthenticated() && authentication.getPrincipal() != null;
-    }
-
-    private boolean hasReadReportPermission(Authentication authentication) {
-        final var authorities = authentication.getAuthorities();
-        if (authorities == null) {
-            return false;
-        }
-        return authorities.stream().anyMatch(authority -> {
-            final String granted = authority.getAuthority();
-            return READ_REPORT_PERMISSION.equals(granted) || ALL_FUNCTIONS.equals(granted);
-        });
     }
 }
