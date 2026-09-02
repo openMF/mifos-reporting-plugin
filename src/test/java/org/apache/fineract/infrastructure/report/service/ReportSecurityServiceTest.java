@@ -9,6 +9,8 @@ package org.apache.fineract.infrastructure.report.service;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import org.apache.fineract.infrastructure.security.exception.NoAuthorizationException;
@@ -73,5 +75,25 @@ class ReportSecurityServiceTest {
         assertThatThrownBy(() -> reportSecurityService.checkReportExecutionPermission("Other_Report"))
                 .isInstanceOf(NoAuthorizationException.class)
                 .hasMessageContaining("Other_Report");
+    }
+
+    @Test
+    @DisplayName("Should allow an upload when the authenticated user is granted CREATE_REPORT")
+    void shouldAllowUploadWhenUserIsGrantedCreateReport() {
+        assertThatCode(() -> reportSecurityService.checkCreateReportPermission())
+                .doesNotThrowAnyException();
+
+        verify(authenticatedUser).validateHasPermissionTo(ReportSecurityService.CREATE_REPORT_PERMISSION);
+    }
+
+    @Test
+    @DisplayName("Should reject an upload when the authenticated user is not granted CREATE_REPORT")
+    void shouldRejectUploadWhenUserIsNotGrantedCreateReport() {
+        doThrow(new NoAuthorizationException("Not authorised"))
+                .when(authenticatedUser)
+                .validateHasPermissionTo(ReportSecurityService.CREATE_REPORT_PERMISSION);
+
+        assertThatThrownBy(() -> reportSecurityService.checkCreateReportPermission())
+                .isInstanceOf(NoAuthorizationException.class);
     }
 }

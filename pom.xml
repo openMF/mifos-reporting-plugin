@@ -28,6 +28,7 @@
 		<eclipselink.version>4.0.9</eclipselink.version>
 		<birt.version>4.24.0</birt.version>
 		<icu4j.version>78.3</icu4j.version>
+		<swagger.version>2.2.49</swagger.version>
                 <csv.emitter.version>1.0.11</csv.emitter.version>
 		<spotless.version>3.10.0</spotless.version>
 		<palantir-java-format.version>2.97.0</palantir-java-format.version>
@@ -62,6 +63,22 @@
 		<dependency>
 			<groupId>jakarta.ws.rs</groupId>
 			<artifactId>jakarta.ws.rs-api</artifactId>
+		</dependency>
+		<!--
+		 Both are already on the Apache Fineract runtime classpath, which is what
+		 serves this plugin's JAX-RS resources and reads their annotations, so they
+		 are declared only to compile against and are not shipped by the plugin.
+		-->
+		<dependency>
+			<groupId>org.glassfish.jersey.media</groupId>
+			<artifactId>jersey-media-multipart</artifactId>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.swagger.core.v3</groupId>
+			<artifactId>swagger-annotations-jakarta</artifactId>
+			<version>${swagger.version}</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
