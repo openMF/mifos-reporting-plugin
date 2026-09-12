@@ -7,23 +7,19 @@
 package org.apache.fineract.infrastructure.report.service;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
 import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportRunnable;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
@@ -35,19 +31,16 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class BirtReportLoader {
     private final IReportEngine reportEngine;
-    private final BirtPluginProperties birtProperties;
+    private final BirtReportsDirectory reportsDirectory;
     private final ReportErrorHandler reportErrorHandler;
     private final ConcurrentMap<String, Long> reportModificationTimes = new ConcurrentHashMap<>();
     private final CacheManager cacheManager;
-    private final JdbcTemplate jdbcTemplate;
 
-    private static final String DEFAULT_REPORTS_DIR = System.getProperty("user.home")
-            + File.separator
-            + ".mifosx"
-            + File.separator
-            + "birtReports"
-            + File.separator;
-    private static final String CACHE_KEY = "#reportName + '_' + (#locale != null ? #locale.getLanguage() : 'en')";
+    /**
+     * The design a name resolves to depends on the tenant, so the tenant belongs in the key. Without
+     * it one tenant's compiled design is served to the next tenant that asks for the same name.
+     */
+    private static final String CACHE_KEY = "#root.target.buildCacheKey(#reportName, #locale)";
 
     /**
      * Loads a BIRT report design with caching enabled.
@@ -59,7 +52,15 @@ public class BirtReportLoader {
     @Cacheable(value = "birtReports", key = CACHE_KEY, sync = true)
     public IReportRunnable loadReport(String reportName, java.util.Locale locale) {
 
-        String reportPath = buildReportPath(reportName, locale);
+        Optional<Path> resolved = resolveReportFile(reportName, locale);
+
+        if (resolved.isEmpty()) {
+            log.error("Report design file not found for report: {}", reportName);
+            throw reportErrorHandler.reportError(
+                    "error.msg.reporting.report.not.found", "Report file not found: " + reportName);
+        }
+
+        String reportPath = resolved.get().toString();
 
         log.info(
                 "Cache miss for BIRT report: {} (locale: {}). Loading template from disk: {}",
@@ -68,12 +69,6 @@ public class BirtReportLoader {
                 reportPath);
 
         File reportFile = new File(reportPath);
-
-        if (!reportFile.exists()) {
-            log.error("Report design file not found: {}", reportPath);
-            throw reportErrorHandler.reportError(
-                    "error.msg.reporting.report.not.found", "Report file not found: " + reportName);
-        }
 
         if (!reportFile.canRead()) {
             log.error("Report file exists but is not readable: {}", reportPath);
@@ -94,41 +89,70 @@ public class BirtReportLoader {
     }
 
     public void validateTemplateFreshness(String reportName, java.util.Locale locale) {
-        String reportPath = buildReportPath(reportName, locale);
-        File reportFile = new File(reportPath);
 
-        if (!reportFile.exists()) {
+        Optional<Path> resolved = resolveReportFile(reportName, locale);
+
+        if (resolved.isEmpty()) {
+
             evictCacheEntry(reportName, locale);
+
             log.info("Report template no longer exists on disk. Evicted cached version: {}", reportName);
+
             return;
         }
 
         String cacheKey = buildCacheKey(reportName, locale);
-        long currentLastModified = reportFile.lastModified();
+
+        long currentLastModified = resolved.get().toFile().lastModified();
+
         Long cachedLastModified = reportModificationTimes.get(cacheKey);
 
         if (cachedLastModified != null && !cachedLastModified.equals(currentLastModified)) {
+
             log.info(
                     "Detected modification for report template: {} (locale: {}). Evicting cached version.",
                     reportName,
                     locale != null ? locale.getLanguage() : "en");
+
             evictCacheEntry(reportName, locale);
         }
 
         reportModificationTimes.put(cacheKey, currentLastModified);
     }
 
-    private String buildCacheKey(String reportName, java.util.Locale locale) {
-        return reportName + "_" + (locale != null ? locale.getLanguage() : "en");
+    /**
+     * Public because the {@code @Cacheable} and {@code @CacheEvict} keys call it through
+     * {@code #root.target}, which keeps one definition of the key instead of a SpEL copy that can
+     * drift away from the Java one.
+     */
+    public String buildCacheKey(String reportName, java.util.Locale locale) {
+        return segment(reportsDirectory.tenantIdentifier())
+                + segment(reportName)
+                + segment(locale != null ? locale.getLanguage() : "en");
+    }
+
+    /**
+     * Joining the parts with a separator is not enough, because a tenant identifier and a report
+     * name may both contain it: tenant {@code a} with report {@code b_c} would key the same entry as
+     * tenant {@code a_b} with report {@code c}. Prefixing each part with its length keeps the key
+     * unambiguous whatever the parts contain.
+     */
+    private String segment(String value) {
+        return value.length() + "_" + value;
     }
 
     private void evictCacheEntry(String reportName, java.util.Locale locale) {
+
         String cacheKey = buildCacheKey(reportName, locale);
+
         Cache cache = cacheManager.getCache("birtReports");
+
         if (cache != null) {
             cache.evict(cacheKey);
         }
+
         reportModificationTimes.remove(cacheKey);
+
         log.info(
                 "Evicted cached BIRT report template: {} (locale: {})",
                 reportName,
@@ -136,80 +160,27 @@ public class BirtReportLoader {
     }
 
     /**
-     * Builds the full path to the .rptdesign file, supporting locale-specific variants.
+     * Resolves the .rptdesign file for a report, supporting locale-specific variants.
      *
-     * <p>The report name reaches this method straight from the request path, so the resolved file has
-     * to be confined to the reports directory: anything that escapes it is rejected as not found.
+     * <p>The report name arrives straight from the request path, so resolution is delegated to
+     * {@link BirtReportsDirectory}, which looks in the tenant's own directory before the shared one
+     * and confines the result to whichever it found: a name that escapes the reports tree resolves
+     * to nothing and reaches the caller as a report that does not exist.
      */
-    private String buildReportPath(String reportName, java.util.Locale locale) {
-        final String languageTag = (locale != null && !"en".equalsIgnoreCase(locale.getLanguage()))
+    private Optional<Path> resolveReportFile(String reportName, java.util.Locale locale) {
+        String languageTag = (locale != null && !"en".equalsIgnoreCase(locale.getLanguage()))
                 ? "_" + locale.getLanguage().toLowerCase()
                 : "";
 
         try {
-            /*
-             * The base directory is resolved here rather than before the try
-             * because it comes from c_external_service_properties, so a value
-             * an administrator stored can be no more a path than the report
-             * name can. Both reach the caller as the same not-found.
-             */
-            final Path baseDir = realPath(
-                    Paths.get(getBaseReportsDirectory()).toAbsolutePath().normalize());
-            final Path reportPath = realPath(
-                    baseDir.resolve(reportName + languageTag + ".rptdesign").normalize());
-            if (reportPath.startsWith(baseDir)) {
-                return reportPath.toString();
-            }
+            return reportsDirectory.resolveExisting(reportName + languageTag + ".rptdesign");
         } catch (InvalidPathException e) {
             log.error(
                     "Rejected BIRT report [{}]: neither it nor the configured reports directory is a path",
                     reportName,
                     e);
-            throw reportErrorHandler.reportError(
-                    "error.msg.reporting.report.not.found", "Report file not found: " + reportName, e);
+            return Optional.empty();
         }
-
-        log.error("Rejected BIRT report name resolving outside the reports directory: {}", reportName);
-        throw reportErrorHandler.reportError(
-                "error.msg.reporting.report.not.found", "Report file not found: " + reportName);
-    }
-
-    /**
-     * Resolves symlinks so the containment check cannot be walked around by a link inside the reports
-     * directory. A path that does not exist yet has nothing to resolve, and stays as it is: the
-     * caller reports it as not found either way.
-     */
-    private Path realPath(Path path) {
-        try {
-            return path.toRealPath();
-        } catch (IOException e) {
-            return path;
-        }
-    }
-
-    /** Returns the base directory for BIRT reports. Priority: Database -> Properties -> Default */
-    private String getBaseReportsDirectory() {
-        // 1. Primary: Fetch from c_external_service_properties (Hot-swapping architecture)
-        try {
-            String sql = "SELECT p.value FROM c_external_service_properties p "
-                    + "JOIN c_external_service s ON p.external_service_id = s.id "
-                    + "WHERE s.name = 'BIRT' AND p.name = 'reports_dir'";
-            String dbPath = jdbcTemplate.queryForObject(sql, String.class);
-            if (StringUtils.isNotBlank(dbPath)) {
-                log.info("BIRT reports directory loaded dynamically from database: {}", dbPath);
-                return dbPath; // CRITICAL: This actually hands the path back to the engine!
-            }
-        } catch (Exception e) {
-            log.debug("BIRT external service configuration not found in DB. Falling back to application properties.");
-        }
-
-        // 2. Secondary: Fallback to application.properties / ENV vars
-        if (StringUtils.isNotBlank(birtProperties.getReportsPath())) {
-            return birtProperties.getReportsPath();
-        }
-
-        // 3. Absolute Fallback
-        return DEFAULT_REPORTS_DIR;
     }
 
     /**
@@ -220,7 +191,9 @@ public class BirtReportLoader {
      */
     @CacheEvict(value = "birtReports", key = CACHE_KEY)
     public void evictFromCache(String reportName, java.util.Locale locale) {
+
         reportModificationTimes.remove(buildCacheKey(reportName, locale));
+
         log.info(
                 "Evicting BIRT report template from cache: {} (locale: {})",
                 reportName,
