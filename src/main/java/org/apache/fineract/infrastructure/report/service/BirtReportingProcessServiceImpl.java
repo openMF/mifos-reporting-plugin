@@ -288,6 +288,8 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
         return cleaned.trim();
     }
 
+    /* IEngineTask#getAppContext() returns a raw java.util.Map; BIRT's own API predates generics. */
+    @SuppressWarnings("unchecked")
     private void setConnectionDetail(IRunTask runTask, Connection birtConnection) throws Exception {
         final String jdbcUrl = birtConnection.getMetaData().getURL();
         final String driverClassName =

@@ -30,6 +30,7 @@ import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenant;
 import org.apache.fineract.infrastructure.core.domain.FineractPlatformTenantConnection;
 import org.apache.fineract.infrastructure.core.exception.PlatformDataIntegrityException;
@@ -496,8 +497,7 @@ public class BirtReadOnlyConnectionFactory {
     private void beginReadOnlyTransaction(Connection connection) throws SQLException {
         final String jdbcUrl =
                 StringUtils.defaultString(connection.getMetaData().getURL());
-        if (!StringUtils.containsIgnoreCase(jdbcUrl, ":mysql")
-                && !StringUtils.containsIgnoreCase(jdbcUrl, ":mariadb")) {
+        if (!Strings.CI.contains(jdbcUrl, ":mysql") && !Strings.CI.contains(jdbcUrl, ":mariadb")) {
             return;
         }
         try (Statement statement = connection.createStatement()) {
