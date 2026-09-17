@@ -205,7 +205,7 @@ Building and using it against other Apache Fineract® versions may be possible, 
 
 ### Prerequisites
 
-* Java 17+ (matching Apache Fineract® baseline)
+* Java 25+ (matching Apache Fineract® baseline)
 * Maven 3.9+
 * Docker® (for running Testcontainers integration suites)
 
@@ -333,7 +333,7 @@ This project includes an embedded **CLI orchestrator** designed to automatically
 
 The migration utility allows multiple legacy Pentaho reports to be converted in a batch without requiring the Apache Fineract® Spring context to be started.
 
-> **Prerequisite:** This utility and plugin require **Java 17+**, matching the baseline requirement for Apache Fineract®.
+> **Prerequisite:** This utility and plugin require **Java 25+**, matching the baseline requirement for Apache Fineract®.
 
 ## Running the Migration CLI
 
