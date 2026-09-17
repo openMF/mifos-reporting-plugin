@@ -6,32 +6,33 @@
  License, v. 2.0. If a copy of the MPL was not distributed with this
  file, You can obtain one at http://mozilla.org/MPL/2.0/. 
 -->
-<project
-	xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.5.16</version>
-		<relativePath/>
+		<version>4.0.3</version>
+		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>community.mifos</groupId>
 	<artifactId>birt-plugin</artifactId>
-	<version>1.15.0-SNAPSHOT</version>
+	<version>1.16.0-SNAPSHOT</version>
 	<name>birt-plugin</name>
 	<description>Mifos BIRT Reporting Plugin for Apache Fineract</description>
 	<properties>
-		<java.version>21</java.version>
+		<java.version>25</java.version>
 		<fineract.version>0.0.1556-391c415</fineract.version>
-		<eclipselink.version>4.0.9</eclipselink.version>
+		<eclipselink.version>5.0.1</eclipselink.version>
 		<birt.version>4.25.0</birt.version>
 		<icu4j.version>78.3</icu4j.version>
-		<swagger.version>2.2.49</swagger.version>
+		<swagger.version>2.2.54</swagger.version>
                 <csv.emitter.version>1.0.11</csv.emitter.version>
 		<spotless.version>3.10.2</spotless.version>
-		<palantir-java-format.version>2.97.0</palantir-java-format.version>
+		<palantir-java-format.version>2.97.0</palantir-java-format.version>   
+                <testcontainers.version>2.0.5</testcontainers.version>
+                <rest-assured.version>6.0.1</rest-assured.version>
+	 <maven.compiler.release>25</maven.compiler.release>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -236,36 +237,37 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
-		</dependency>
-		<dependency>
-    <groupId>org.testcontainers</groupId>
-    <artifactId>junit-jupiter</artifactId>
-    <scope>test</scope>
-</dependency>
-
-<dependency>
-    <groupId>org.testcontainers</groupId>
-    <artifactId>postgresql</artifactId>
-    <scope>test</scope>
-</dependency>
-
-<dependency>
-    <groupId>org.testcontainers</groupId>
-    <artifactId>testcontainers</artifactId>
-    <scope>test</scope>
-</dependency>
-
-<dependency>
-    <groupId>io.rest-assured</groupId>
-    <artifactId>rest-assured</artifactId>
-    <scope>test</scope>
-</dependency>
-		             
+		</dependency>	             
                 <dependency>
                     <groupId>org.projectlombok</groupId>
                     <artifactId>lombok</artifactId>
-                    <scope>compile</scope>
+                    <scope>provided</scope>
                 </dependency>
+                <!-- Testcontainers 2.x (new artifact names) -->
+                <dependency>
+                    <groupId>org.testcontainers</groupId>
+                    <artifactId>testcontainers-junit-jupiter</artifactId>
+                    <scope>test</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.testcontainers</groupId>
+                    <artifactId>testcontainers-postgresql</artifactId>
+                    <scope>test</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.testcontainers</groupId>
+                    <artifactId>testcontainers</artifactId>
+                    <scope>test</scope>
+                </dependency>
+
+                <!-- REST Assured is no longer managed by Spring Boot 4 -->
+                <dependency>
+                    <groupId>io.rest-assured</groupId>
+                    <artifactId>rest-assured</artifactId>
+                    <version>${rest-assured.version}</version>
+                    <scope>test</scope>
+                </dependency>
+                
 	</dependencies>
 	<build>
         <pluginManagement>
@@ -273,6 +275,18 @@
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
+                </plugin>   
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>com.diffplug.spotless</groupId>
