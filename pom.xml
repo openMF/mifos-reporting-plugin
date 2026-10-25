@@ -22,7 +22,7 @@
 	<description>Mifos BIRT Reporting Plugin for Apache Fineract</description>
 	<properties>
 		<java.version>25</java.version>
-		<fineract.version>0.0.1556-391c415</fineract.version>
+		<fineract.version>0.0.1627-e460bb9</fineract.version>
 		<eclipselink.version>5.0.2</eclipselink.version>
 		<birt.version>4.25.0</birt.version>
 		<icu4j.version>79.1</icu4j.version>
