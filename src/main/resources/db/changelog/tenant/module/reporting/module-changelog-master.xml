@@ -11,4 +11,5 @@
   
   <include file="parts/001-enable-active-loans-report.xml" relativeToChangelogFile="true"/>
   <include file="parts/002-birt-external-service.xml" relativeToChangelogFile="true"/>  
+  <include file="parts/003-kyc-pdf-reports.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

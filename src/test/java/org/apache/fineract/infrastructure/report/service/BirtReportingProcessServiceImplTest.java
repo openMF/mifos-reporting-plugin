@@ -111,6 +111,9 @@ class BirtReportingProcessServiceImplTest {
     @Mock
     private BirtReadOnlyConnectionFactory connectionFactory;
 
+    @Mock
+    private KycReportDataService kycReportDataService;
+
     @InjectMocks
     private BirtReportingProcessServiceImpl service;
 
@@ -497,6 +500,62 @@ class BirtReportingProcessServiceImplTest {
         inOrder.verify(parameterMapper).applyParameters(eq(task), any());
         inOrder.verify(contextInjector).injectContextParameters(task);
         inOrder.verify(task).run(anyString());
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"KYCNaturalPerson", "KYCLegalPerson"})
+    void kycUsesExistingBirtPipelineWithPrivateExecutionDataAndSecureHeaders(String report) throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        ReportDesignHandle handle = mock(ReportDesignHandle.class);
+        IRunTask task = mock(IRunTask.class);
+        HashMap<String, Object> appContext = new HashMap<>();
+        var rows = List.of(Map.of("section", "Client", "label", "Name", "value", "Scoped client"));
+        when(kycReportDataService.snapshot(report, 7L)).thenReturn(rows);
+        when(task.getAppContext()).thenReturn(appContext);
+        when(reportExecutionFactory.createExecutionRunnable(eq(report), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(handle);
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+        when(pdfRenderer.render(eq(reportEngine), anyString(), eq(report)))
+                .thenReturn(Response.ok().type("application/pdf").build());
+        var params = new MultivaluedHashMap<String, String>();
+        params.add("R_clientId", "7");
+        // The KYC path defaults to PDF even though general BIRT reports default to HTML.
+        try (var response = service.processRequest(report, params)) {
+            assertEquals("application/pdf", response.getMediaType().toString());
+            assertEquals("no-store, private", response.getHeaderString("Cache-Control"));
+            assertEquals("nosniff", response.getHeaderString("X-Content-Type-Options"));
+        }
+        assertSame(rows, appContext.get(KycReportDataService.APP_CONTEXT_KEY));
+        verify(parameterMapper).applyParameters(task, Map.of("clientId", "7"));
+        InOrder order = inOrder(reportSecurityService, kycReportDataService, reportExecutionFactory, task);
+        order.verify(reportSecurityService).checkReportExecutionPermission(report);
+        order.verify(kycReportDataService).snapshot(report, 7L);
+        order.verify(reportExecutionFactory).createExecutionRunnable(eq(report), any());
+        order.verify(task).run(anyString());
+    }
+
+    @Test
+    void kycAccessFailureIsPreservedAndNeverStartsBirt() {
+        when(kycReportDataService.snapshot("KYCNaturalPerson", 7L))
+                .thenThrow(new org.apache.fineract.portfolio.client.exception.ClientNotFoundException(7L));
+        var params = new MultivaluedHashMap<String, String>();
+        params.add("R_clientId", "7");
+        assertThrows(
+                org.apache.fineract.portfolio.client.exception.ClientNotFoundException.class,
+                () -> service.processRequest("KYCNaturalPerson", params));
+        org.mockito.Mockito.verifyNoInteractions(reportExecutionFactory, reportEngine, connectionFactory);
+    }
+
+    @Test
+    void invalidKycRequestNeverReadsClientOrStartsBirt() {
+        var params = new MultivaluedHashMap<String, String>();
+        params.add("R_clientId", "0");
+        assertThrows(jakarta.ws.rs.BadRequestException.class, () -> service.processRequest("KYCNaturalPerson", params));
+        params.putSingle("R_clientId", "7");
+        params.add("output-type", "HTML");
+        assertThrows(jakarta.ws.rs.BadRequestException.class, () -> service.processRequest("KYCNaturalPerson", params));
+        org.mockito.Mockito.verifyNoInteractions(
+                kycReportDataService, reportExecutionFactory, reportEngine, connectionFactory);
     }
 
     private BirtRenderer getRendererForType(String outputType) {

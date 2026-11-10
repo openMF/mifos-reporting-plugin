@@ -161,7 +161,10 @@ public abstract class BirtIntegrationTestBase {
                 .withEnv("FINERACT_SERVER_SSL_ENABLED", "true")
                 .withEnv("FINERACT_SERVER_PORT", "8443")
                 // 1. Tell the plugin where to look for reports
-                .withEnv("MIFOS_BIRT_REPORTS_PATH", REPORTS_DIR_IN_CONTAINER);
+                .withEnv("MIFOS_BIRT_REPORTS_PATH", REPORTS_DIR_IN_CONTAINER)
+                .withEnv("MIFOS_BIRT_FONTS_PATH", "/app/birt/fonts");
+
+        fineract.withCopyFileToContainer(MountableFile.forHostPath("birt/fonts"), "/app/birt/fonts");
 
         // 2. Safely copy the ENTIRE directory of runtime dependencies gathered by Maven
         fineract.withCopyFileToContainer(MountableFile.forHostPath("target/test-runtime/libs"), "/app/birt/libs");

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright since 2026 Mifos Initiative. Licensed under MPL 2.0: http://mozilla.org/MPL/2.0/. -->
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+  <changeSet author="mifos" id="reporting-web1419-person">
+    <preConditions onFail="MARK_RAN">
+      <sqlCheck expectedResult="0">SELECT COUNT(*) FROM stretchy_report WHERE report_name='KYCNaturalPerson'</sqlCheck>
+    </preConditions>
+    <insert tableName="stretchy_report">
+      <column name="report_name" value="KYCNaturalPerson"/>
+      <column name="report_type" value="BIRT"/>
+      <column name="report_category" value="Client"/>
+      <column name="description" value="Saved KYC records for a PERSON client. Requires R_clientId; PDF only."/>
+      <column name="core_report" valueBoolean="false"/>
+      <column name="use_report" valueBoolean="true"/>
+      <column name="self_service_user_report" valueBoolean="false"/>
+    </insert>
+  </changeSet>
+  <changeSet author="mifos" id="reporting-web1419-entity">
+    <preConditions onFail="MARK_RAN">
+      <sqlCheck expectedResult="0">SELECT COUNT(*) FROM stretchy_report WHERE report_name='KYCLegalPerson'</sqlCheck>
+    </preConditions>
+    <insert tableName="stretchy_report">
+      <column name="report_name" value="KYCLegalPerson"/>
+      <column name="report_type" value="BIRT"/>
+      <column name="report_category" value="Client"/>
+      <column name="description" value="Saved KYC records for an ENTITY client. Requires R_clientId; PDF only."/>
+      <column name="core_report" valueBoolean="false"/>
+      <column name="use_report" valueBoolean="true"/>
+      <column name="self_service_user_report" valueBoolean="false"/>
+    </insert>
+  </changeSet>
+  <!-- Preserve existing report IDs, grants and parameter references, including installations of
+       the savings-plugin prototype or legacy Pentaho KYC reports. Ownership moves to BIRT. -->
+  <changeSet author="mifos" id="reporting-web1419-birt-ownership">
+    <update tableName="stretchy_report">
+      <column name="report_type" value="BIRT"/>
+      <column name="self_service_user_report" valueBoolean="false"/>
+      <where>report_name IN ('KYCNaturalPerson','KYCLegalPerson')</where>
+    </update>
+  </changeSet>
+  <changeSet author="mifos" id="reporting-web1419-permissions">
+    <sql>
+      INSERT INTO m_permission(grouping,code,entity_name,action_name,can_maker_checker)
+      SELECT 'report', r.code, r.entity_name, 'READ', false FROM (
+        SELECT 'READ_KYCNaturalPerson' AS code, 'KYCNaturalPerson' AS entity_name
+        UNION ALL SELECT 'READ_KYCLegalPerson','KYCLegalPerson'
+      ) r WHERE NOT EXISTS (SELECT 1 FROM m_permission p WHERE p.code=r.code);
+    </sql>
+  </changeSet>
+  <changeSet author="mifos" id="reporting-web1419-client-parameter">
+    <sql>
+      INSERT INTO stretchy_report_parameter(report_id,parameter_id,report_parameter_name)
+      SELECT r.id,p.id,'clientId' FROM stretchy_report r CROSS JOIN stretchy_parameter p
+      WHERE r.report_name IN ('KYCNaturalPerson','KYCLegalPerson')
+        AND p.parameter_name='DefaultClient'
+        AND NOT EXISTS (SELECT 1 FROM stretchy_report_parameter rp
+          WHERE rp.report_id=r.id AND rp.report_parameter_name='clientId');
+    </sql>
+  </changeSet>
+</databaseChangeLog>

@@ -9,7 +9,9 @@ package org.apache.fineract.infrastructure.report.config;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.logging.Level;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.fineract.infrastructure.report.service.BirtFontConfigurer;
 import org.eclipse.birt.core.exception.BirtException;
 import org.eclipse.birt.core.framework.Platform;
 import org.eclipse.birt.report.engine.api.EngineConfig;
@@ -28,8 +30,10 @@ import org.springframework.context.annotation.Configuration;
  */
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class BirtEngineConfiguration {
 
+    private final BirtFontConfigurer fontConfigurer;
     private IReportEngine reportEngine;
 
     @Bean
@@ -83,6 +87,7 @@ public class BirtEngineConfiguration {
             log.info("******************************************");
 
             EngineConfig config = new EngineConfig();
+            fontConfigurer.configureFonts(config);
             // Redirect BIRT internal logging to prevent console spam.
             config.setLogConfig(null, Level.WARNING);
 
