@@ -60,19 +60,32 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     private final BirtSqlDialectInterpolator sqlDialectInterpolator;
     private final ReportSecurityService reportSecurityService;
     private final BirtReadOnlyConnectionFactory connectionFactory;
+    private final KycReportDataService kycReportDataService;
 
     @Override
     public Response processRequest(String reportName, MultivaluedMap<String, String> queryParams) {
         reportSecurityService.checkReportExecutionPermission(reportName);
-        final String outputType = resolveOutputType(queryParams);
-        final Locale locale = ApiParameterHelper.extractLocale(queryParams);
         final Map<String, String> reportParams = getReportParams(reportName, queryParams);
+        final boolean kycReport = KycReportDataService.isKycReport(reportName);
+        final String outputType = kycReport ? "PDF" : resolveOutputType(queryParams);
+        final Locale locale = ApiParameterHelper.extractLocale(queryParams);
+        final List<Map<String, String>> kycRows = kycReport
+                ? kycReportDataService.snapshot(reportName, Long.parseLong(reportParams.get("clientId")))
+                : null;
         log.info("Generating BIRT report: {} | format: {} | locale: {}", reportName, outputType, locale);
         final Path tempDocPath = createTemporaryDocument();
         final String documentPath = tempDocPath.toAbsolutePath().toString();
         try {
-            executeReportToDocument(reportName, locale, reportParams, documentPath);
-            return renderReport(reportName, outputType, documentPath);
+            executeReportToDocument(reportName, locale, reportParams, documentPath, kycRows);
+            Response response = renderReport(reportName, outputType, documentPath);
+            if (kycReport) {
+                return Response.fromResponse(response)
+                        .header("Cache-Control", "no-store, private")
+                        .header("Pragma", "no-cache")
+                        .header("X-Content-Type-Options", "nosniff")
+                        .build();
+            }
+            return response;
         } catch (PlatformDataIntegrityException e) {
             deleteTempQuietly(tempDocPath, documentPath);
             throw e;
@@ -93,7 +106,11 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
     }
 
     private void executeReportToDocument(
-            String reportName, Locale locale, Map<String, String> reportParams, String documentPath) {
+            String reportName,
+            Locale locale,
+            Map<String, String> reportParams,
+            String documentPath,
+            List<Map<String, String>> kycRows) {
         /*
          * This transaction no longer scopes the report's own SQL: that runs
          * on a separate connection this method opens and closes itself, and
@@ -122,6 +139,9 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
                     final ReportDesignHandle designHandle = (ReportDesignHandle) design.getDesignHandle();
                     sqlDialectInterpolator.interpolate(designHandle);
                     runTask = reportEngine.createRunTask(design);
+                    if (kycRows != null) {
+                        setKycRows(runTask, kycRows);
+                    }
                     runTask.setErrorHandlingOption(IEngineTask.CANCEL_ON_ERROR);
                     birtConnection = connectionFactory.open();
                     setConnectionDetail(runTask, birtConnection);
@@ -319,6 +339,9 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
 
     @Override
     public Map<String, String> getReportParams(String reportName, MultivaluedMap<String, String> queryParams) {
+        if (KycReportDataService.isKycReport(reportName)) {
+            return KycReportDataService.validateParameters(queryParams);
+        }
         final Map<String, String> params = new HashMap<>();
         queryParams.keySet().stream().filter(key -> key.startsWith("R_")).forEach(key -> {
             final String parameterName = key.substring(2);
@@ -331,6 +354,12 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
             }
         });
         return params;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setKycRows(IRunTask task, List<Map<String, String>> rows) {
+        // Request data belongs to the run task, never the shared cached template.
+        task.getAppContext().put(KycReportDataService.APP_CONTEXT_KEY, rows);
     }
 
     /**

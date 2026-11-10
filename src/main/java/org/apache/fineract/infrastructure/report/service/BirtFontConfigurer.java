@@ -6,7 +6,6 @@
  */
 package org.apache.fineract.infrastructure.report.service;
 
-import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.net.MalformedURLException;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.infrastructure.report.config.BirtPluginProperties;
 import org.eclipse.birt.report.engine.api.EngineConfig;
+import org.openpdf.text.FontFactory;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -23,11 +23,9 @@ public class BirtFontConfigurer {
 
     private final BirtPluginProperties birtProperties;
 
-    @PostConstruct
-    public void configureFonts() {
+    public void configureFonts(EngineConfig engineConfig) {
         try {
             log.info("BIRT font configuration initiated");
-            EngineConfig engineConfig = new EngineConfig();
 
             // Add custom font path
             String fontsDir = birtProperties.getFontsPath();
@@ -38,7 +36,9 @@ public class BirtFontConfigurer {
                 } else {
                     File fontFolder = new File(fontsDir);
                     if (fontFolder.exists()) {
-                        engineConfig.setFontConfig(fontFolder.toURI().toURL()); // or use setBIRTFontPath if available
+                        // The native BIRT PDF emitter uses this same OpenPDF font registry.
+                        // Register before engine startup, before BIRT caches font lookups.
+                        FontFactory.registerDirectory(fontFolder.getAbsolutePath());
                     }
                 }
             }

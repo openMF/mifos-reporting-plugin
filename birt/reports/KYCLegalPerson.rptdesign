@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright since 2026 Mifos Initiative. Licensed under MPL 2.0: http://mozilla.org/MPL/2.0/. -->
+<report xmlns="http://www.eclipse.org/birt/2005/design" version="3.2.23" id="1">
+  <property name="units">in</property>
+  <parameters>
+    <scalar-parameter name="clientId" id="369"><property name="dataType">string</property><property name="paramType">simple</property><property name="isRequired">true</property></scalar-parameter>
+    <scalar-parameter name="userhierarchy" id="566"><property name="dataType">string</property><property name="paramType">simple</property><property name="isRequired">false</property></scalar-parameter>
+    <scalar-parameter name="userid" id="769"><property name="dataType">string</property><property name="paramType">simple</property><property name="isRequired">false</property></scalar-parameter>
+  </parameters>
+  <data-sources><script-data-source name="AuthorizedSnapshot" id="9"/></data-sources>
+  <data-sets>
+    <script-data-set name="KycSnapshot" id="10">
+      <property name="dataSource">AuthorizedSnapshot</property>
+      <list-property name="resultSetHints">
+        <structure><property name="position">1</property><property name="name">section</property><property name="dataType">string</property></structure>
+        <structure><property name="position">2</property><property name="name">label</property><property name="dataType">string</property></structure>
+        <structure><property name="position">3</property><property name="name">value</property><property name="dataType">string</property></structure>
+      </list-property>
+      <!-- Only an already-authorized snapshot enters the task context. No report SQL or HTML. -->
+      <method name="open"><![CDATA[
+this.records = reportContext.getAppContext().get("mifos.kyc.rows").iterator();
+      ]]></method>
+      <method name="fetch"><![CDATA[
+if (!this.records.hasNext()) { return false; }
+var record = this.records.next();
+row["section"] = record.get("section");
+row["label"] = record.get("label");
+row["value"] = record.get("value");
+return true;
+      ]]></method>
+    </script-data-set>
+  </data-sets>
+  <styles><style name="report" id="8"><property name="fontFamily">"Noto Sans"</property><property name="fontSize">9pt</property></style></styles>
+  <page-setup><simple-master-page name="A4" id="20"><property name="type">a4</property><property name="leftMargin">0.5in</property><property name="rightMargin">0.5in</property><property name="topMargin">0.5in</property><property name="bottomMargin">0.5in</property></simple-master-page></page-setup>
+  <body>
+    <label id="21"><property name="fontSize">20pt</property><property name="fontWeight">bold</property><text-property name="text">KYC REPORT - ENTITY</text-property></label>
+    <label id="22"><property name="paddingBottom">12pt</property><text-property name="text">Snapshot of saved client and verification records. Missing information is shown as Not recorded. This report does not certify a successful KYC check.</text-property></label>
+    <table id="30">
+      <property name="width">7.2in</property>
+      <property name="dataSet">KycSnapshot</property>
+      <list-property name="boundDataColumns">
+        <structure><property name="name">section</property><expression name="expression" type="javascript">dataSetRow["section"]</expression><property name="dataType">string</property></structure>
+        <structure><property name="name">label</property><expression name="expression" type="javascript">dataSetRow["label"]</expression><property name="dataType">string</property></structure>
+        <structure><property name="name">value</property><expression name="expression" type="javascript">dataSetRow["value"]</expression><property name="dataType">string</property></structure>
+      </list-property>
+      <column id="31"><property name="width">1.6in</property></column>
+      <column id="32"><property name="width">1.9in</property></column>
+      <column id="33"><property name="width">3.7in</property></column>
+      <header><row id="40"><property name="fontWeight">bold</property><property name="backgroundColor">#EEF2F6</property>
+        <cell id="41"><label id="42"><text-property name="text">Section</text-property></label></cell>
+        <cell id="43"><label id="44"><text-property name="text">Item</text-property></label></cell>
+        <cell id="45"><label id="46"><text-property name="text">Recorded value</text-property></label></cell>
+      </row></header>
+      <detail><row id="50"><property name="paddingTop">4pt</property><property name="paddingBottom">4pt</property>
+        <cell id="51"><data id="52"><property name="resultSetColumn">section</property></data></cell>
+        <cell id="53"><data id="54"><property name="resultSetColumn">label</property></data></cell>
+        <cell id="55"><data id="56"><property name="resultSetColumn">value</property></data></cell>
+      </row></detail>
+    </table>
+  </body>
+</report>
