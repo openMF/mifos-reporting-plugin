@@ -125,7 +125,7 @@ Reports run as this principal borrow from a connection pool of their own, bounde
 ```bash
 export MIFOS_BIRT_REPORTS_LOCALE=en
 export MIFOS_BIRT_REPORTS_PATH=/app/birt/reports
-export MIFOS_BIRT_FONTS_PATH=/app/birt/fonts
+export MIFOS_BIRT_REPORTS_FONTS_PATH=/app/birt/fonts
 export MIFOS_BIRT_REPORTS_FONTS_CONFIG_PATH=/app/birt/config
 ```
 
@@ -222,7 +222,7 @@ git clone https://github.com/openMF/mifos-reporting-plugin.git && cd mifos-repor
 ```bash
 export MIFOS_BIRT_REPORTS_LOCALE=en
 export MIFOS_BIRT_REPORTS_PATH=/app/birt/reports
-export MIFOS_BIRT_FONTS_PATH=/app/birt/fonts
+export MIFOS_BIRT_REPORTS_FONTS_PATH=/app/birt/fonts
 export MIFOS_BIRT_REPORTS_FONTS_CONFIG_PATH=/app/birt/config
 
 # Paths for Fineract execution
@@ -265,43 +265,6 @@ Supported `output-type` parameters:
 | `CSV` | `text/csv` |
 | `XLS` | `application/vnd.ms-excel` |
 | `XLSX` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` |
-
-### KYC PDF reports (WEB-1419)
-
-`KYCNaturalPerson` (PERSON, legal form 1) and `KYCLegalPerson` (ENTITY, legal form 2)
-use the existing BIRT reporting service and PDF emitter. The merged Web App contract is unchanged:
-
-```text
-GET /fineract-provider/api/v1/runreports/KYCNaturalPerson?R_clientId=123&output-type=PDF
-GET /fineract-provider/api/v1/runreports/KYCLegalPerson?R_clientId=456&output-type=PDF
-```
-
-Install both `birt/reports/KYC*.rptdesign` files in the configured reports directory,
-copy `birt/fonts/NotoSans-Regular.ttf` and its `NotoSans-OFL.txt` license to the fonts
-directory, and set `MIFOS_BIRT_FONTS_PATH=/app/birt/fonts` (Spring property
-`mifos.birt.fonts-path`). Restart Fineract after changing fonts. Additional scripts
-require fonts with the appropriate character coverage in that directory.
-
-The reporting tenant changelog registers the reports, their `clientId` parameter
-mapping and `READ_KYCNaturalPerson` / `READ_KYCLegalPerson` permissions. Existing KYC
-report IDs and role grants are preserved while their report type moves to `BIRT`.
-Existing disabled reports stay disabled. No roles receive new grants automatically.
-
-Execution requires `READ_CLIENT` and the selected report's permission (or the
-platform's corresponding blanket grants). Core client reads enforce office and
-transfer-office hierarchy access in the authenticated tenant. Identity documents
-require `READ_CLIENTIDENTIFIER`; document validation requires the selected
-`dt_kyc_validation` / `dt_kyc_validation_entity` datatable's read permission.
-Denied sections are explicitly omitted. Optional savings-plugin verification and
-registered validation tables are read when present; absent records are shown as
-`Not recorded` or no records, never as a successful check. These tables are not
-created by the reporting plugin.
-
-KYC reports accept one positive signed-64-bit `R_clientId`, reject other `R_`
-parameters and PERSON/ENTITY mismatches, and support PDF only (also the default
-when `output-type` is omitted). Responses use `application/pdf`, `no-store, private`
-and `nosniff`. The configured BIRT templates remain trusted administrator-installed
-artifacts, as with other reports.
 
 ### 5. Verify the Output
 
