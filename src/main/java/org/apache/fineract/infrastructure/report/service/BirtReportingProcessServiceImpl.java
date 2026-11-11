@@ -8,6 +8,10 @@ package org.apache.fineract.infrastructure.report.service;
 
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -33,6 +37,7 @@ import org.eclipse.birt.report.engine.api.IReportEngine;
 import org.eclipse.birt.report.engine.api.IReportRunnable;
 import org.eclipse.birt.report.engine.api.IRunTask;
 import org.eclipse.birt.report.model.api.ReportDesignHandle;
+import org.springframework.batch.core.scope.context.StepSynchronizationManager;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -327,13 +332,78 @@ public class BirtReportingProcessServiceImpl implements ReportingProcessService 
         runTask.getAppContext().put("OdaJDBCDriverPassInConnectionCloseAfterUse", false);
     }
 
+    /** Streams the report to an HTTP caller, or renders it immediately inside a batch step. */
     private Response renderReport(String reportName, String outputType, String documentPath) {
         try {
             final BirtRenderer renderer = getRenderer(outputType);
-            return renderer.render(reportEngine, documentPath, reportName);
+            final Response response = renderer.render(reportEngine, documentPath, reportName);
+            return StepSynchronizationManager.getContext() == null ? response : buffered(response);
+        } catch (PlatformDataIntegrityException e) {
+            throw e;
         } catch (Exception e) {
             throw new PlatformDataIntegrityException(
                     "error.msg.reporting.error", "Failed to initialize report stream.", e);
+        }
+    }
+
+    /**
+     * Renders the report now instead of leaving it for the HTTP layer to stream.
+     *
+     * <p>A report mailing job runs in a Spring Batch step, where nothing writes the response, so a
+     * stream would never run and never release what it holds. Apache Fineract® only attaches the
+     * report when the entity is exactly a {@link ByteArrayOutputStream}. The renderer's stream still
+     * does the work, so it also still closes the document and deletes the temporary file.
+     *
+     * <p>The whole report has to fit in memory, so its size is capped by {@code
+     * mifos.birt.buffered-report-max-size-bytes}. A report over the cap fails, and is never handed
+     * over cut short.
+     */
+    private Response buffered(Response response) throws IOException {
+        final long maxSizeBytes = birtProperties.getBufferedReportMaxSizeBytes();
+        final BoundedBuffer buffer = new BoundedBuffer(maxSizeBytes);
+        ((StreamingOutput) response.getEntity()).write(buffer);
+        if (buffer.exceeded) {
+            throw new PlatformDataIntegrityException(
+                    "error.msg.reporting.output.too.large",
+                    "The rendered report exceeds the limit of " + maxSizeBytes + " bytes.");
+        }
+        return Response.fromResponse(response).entity(buffer.content).build();
+    }
+
+    /**
+     * Keeps a report up to a size limit and records when more arrives.
+     *
+     * <p>It discards the excess instead of throwing, because the HTML, PDF and CSV emitters swallow
+     * an {@link IOException} from their output and finish normally. A throw here would leave a
+     * truncated report that looks complete, so {@link #buffered} checks the flag once rendering ends.
+     */
+    private static final class BoundedBuffer extends OutputStream {
+
+        private final ByteArrayOutputStream content = new ByteArrayOutputStream();
+        private final long maxSizeBytes;
+        private boolean exceeded;
+
+        private BoundedBuffer(long maxSizeBytes) {
+            this.maxSizeBytes = maxSizeBytes;
+        }
+
+        @Override
+        public void write(int b) {
+            if (fits(1)) {
+                content.write(b);
+            }
+        }
+
+        @Override
+        public void write(byte[] bytes, int offset, int length) {
+            if (fits(length)) {
+                content.write(bytes, offset, length);
+            }
+        }
+
+        private boolean fits(int length) {
+            exceeded = exceeded || content.size() + (long) length > maxSizeBytes;
+            return !exceeded;
         }
     }
 

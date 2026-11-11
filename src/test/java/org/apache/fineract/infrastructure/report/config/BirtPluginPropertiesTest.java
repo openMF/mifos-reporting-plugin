@@ -37,6 +37,17 @@ class BirtPluginPropertiesTest {
         assertTrue(ex.getMessage().contains("mifos.birt.read-only-pool-max-size"), ex.getMessage());
     }
 
+    @Test
+    @DisplayName("Should refuse a buffered report limit that no report can fit in")
+    void shouldRefuseABufferedReportLimitBelowOne() {
+        final BirtPluginProperties properties = new BirtPluginProperties();
+        properties.setBufferedReportMaxSizeBytes(0L);
+
+        final IllegalStateException ex = assertThrows(IllegalStateException.class, properties::validate);
+
+        assertTrue(ex.getMessage().contains("mifos.birt.buffered-report-max-size-bytes"), ex.getMessage());
+    }
+
     /** Hikari reads 0 as "wait forever" for a connection timeout, but refuses it as a validation one. */
     @Test
     @DisplayName("Should refuse a timeout below Hikari's floor, zero included")

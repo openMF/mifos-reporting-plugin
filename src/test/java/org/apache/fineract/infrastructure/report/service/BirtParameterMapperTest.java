@@ -132,6 +132,55 @@ class BirtParameterMapperTest {
     }
 
     @Test
+    @DisplayName("Should accept the yyyy-MM-dd dates report mailing jobs send")
+    void shouldAcceptReportMailingJobDateFormat() throws Exception {
+        stubDateParameter("startDate");
+
+        mapper.applyParameters(runTask, Map.of("startDate", "2026-11-04"));
+
+        verify(runTask).setParameterValue("startDate", java.sql.Date.valueOf("2026-11-04"));
+    }
+
+    @Test
+    @DisplayName("Should reject a date in neither supported format")
+    void shouldRejectUnsupportedDateFormat() throws Exception {
+        stubDateParameter("startDate");
+        when(reportErrorHandler.reportError(eq("error.msg.reporting.invalid.parameter"), anyString(), any()))
+                .thenAnswer(inv -> new PlatformDataIntegrityException(inv.getArgument(0), inv.getArgument(1)));
+
+        assertThrows(
+                PlatformDataIntegrityException.class,
+                () -> mapper.applyParameters(runTask, Map.of("startDate", "04/11/2026")));
+
+        verify(runTask, never()).setParameterValue(eq("startDate"), any());
+    }
+
+    @Test
+    @DisplayName("Should reject an impossible yyyy-MM-dd date instead of adjusting it")
+    void shouldRejectImpossibleIsoDate() throws Exception {
+        stubDateParameter("startDate");
+        when(reportErrorHandler.reportError(eq("error.msg.reporting.invalid.parameter"), anyString(), any()))
+                .thenAnswer(inv -> new PlatformDataIntegrityException(inv.getArgument(0), inv.getArgument(1)));
+
+        assertThrows(
+                PlatformDataIntegrityException.class,
+                () -> mapper.applyParameters(runTask, Map.of("startDate", "2026-02-30")));
+
+        verify(runTask, never()).setParameterValue(eq("startDate"), any());
+    }
+
+    private void stubDateParameter(String name) throws Exception {
+        when(runTask.getReportRunnable()).thenReturn(reportRunnable);
+        when(reportEngine.createGetParameterDefinitionTask(reportRunnable)).thenReturn(paramTask);
+
+        IParameterDefn dateParam = mock(IParameterDefn.class);
+        when(dateParam.getName()).thenReturn(name);
+        when(dateParam.getDataType()).thenReturn(IParameterDefn.TYPE_DATE);
+
+        when(paramTask.getParameterDefns(anyBoolean())).thenReturn(List.of(dateParam));
+    }
+
+    @Test
     @DisplayName("Should throw when a single required parameter is missing")
     void shouldThrowExceptionWhenSingleRequiredParameterMissing() throws Exception {
         when(runTask.getReportRunnable()).thenReturn(reportRunnable);
