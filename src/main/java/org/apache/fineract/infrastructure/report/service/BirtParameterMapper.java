@@ -9,6 +9,7 @@ package org.apache.fineract.infrastructure.report.service;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -42,6 +43,15 @@ public class BirtParameterMapper {
      * {@link BirtContextInjector} and are never accepted from the client.
      */
     public static final Set<String> SERVER_MANAGED_PARAMETERS = Set.of("userhierarchy", "userid");
+
+    /**
+     * Date formats a report parameter may arrive in: the one API callers send, and the {@code
+     * yyyy-MM-dd} Apache Fineract® report mailing jobs use when they resolve {@code today}, {@code
+     * yesterday} and {@code tomorrow}. The ISO formatter is strict, so an impossible date such as
+     * {@code 2026-02-30} is refused rather than moved to the end of the month.
+     */
+    private static final List<DateTimeFormatter> DATE_FORMATS =
+            List.of(DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.ENGLISH), DateTimeFormatter.ISO_LOCAL_DATE);
 
     /**
      * Validates and applies report parameters to the BIRT run task.
@@ -128,15 +138,17 @@ public class BirtParameterMapper {
         }
     }
 
+    /** Parses a date parameter using the first of {@link #DATE_FORMATS} that accepts it. */
     private Date parseDate(String value) {
-        try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.ENGLISH);
-            LocalDate localDate = LocalDate.parse(value, formatter);
-            return Date.valueOf(localDate);
-        } catch (Exception e) {
-            throw new PlatformDataIntegrityException(
-                    "error.msg.reporting.invalid.date", "Invalid date format. Expected: 'dd MMMM yyyy'", e);
+        for (DateTimeFormatter format : DATE_FORMATS) {
+            try {
+                return Date.valueOf(LocalDate.parse(value, format));
+            } catch (DateTimeParseException e) {
+                log.trace("Date '{}' does not match {}", value, format);
+            }
         }
+        throw new PlatformDataIntegrityException(
+                "error.msg.reporting.invalid.date", "Invalid date format. Expected: 'dd MMMM yyyy' or 'yyyy-MM-dd'");
     }
 
     @FunctionalInterface

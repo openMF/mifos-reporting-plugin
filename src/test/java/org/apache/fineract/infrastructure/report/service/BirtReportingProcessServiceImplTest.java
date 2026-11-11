@@ -28,6 +28,10 @@ import static org.mockito.Mockito.when;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Statement;
@@ -55,6 +59,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.batch.core.scope.context.StepSynchronizationManager;
+import org.springframework.batch.core.step.StepExecution;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
@@ -500,6 +506,88 @@ class BirtReportingProcessServiceImplTest {
         inOrder.verify(parameterMapper).applyParameters(eq(task), any());
         inOrder.verify(contextInjector).injectContextParameters(task);
         inOrder.verify(task).run(anyString());
+    }
+
+    @Test
+    @DisplayName("Should hand a report mailing job the rendered report as a ByteArrayOutputStream")
+    void shouldBufferReportInsideBatchStep() throws Exception {
+        StreamingOutput stream = output -> output.write("report".getBytes(StandardCharsets.UTF_8));
+        stubReportRun(stream);
+        when(birtProperties.getBufferedReportMaxSizeBytes()).thenReturn(6L);
+
+        StepSynchronizationManager.register(mock(StepExecution.class));
+        try {
+            Response response = service.processRequest("sample", queryParams("PDF"));
+
+            assertEquals(ByteArrayOutputStream.class, response.getEntity().getClass());
+            assertEquals("report", response.getEntity().toString());
+            assertEquals("application/pdf", response.getMediaType().toString());
+        } finally {
+            StepSynchronizationManager.release();
+        }
+    }
+
+    @Test
+    @DisplayName("Should keep streaming the report outside a batch step")
+    void shouldStreamReportOutsideBatchStep() throws Exception {
+        StreamingOutput stream = mock(StreamingOutput.class);
+        stubReportRun(stream);
+
+        Response response = service.processRequest("sample", queryParams("PDF"));
+
+        assertSame(stream, response.getEntity());
+        verify(stream, never()).write(any());
+    }
+
+    @Test
+    @DisplayName("Should fail the report mailing job when rendering the report fails")
+    void shouldFailWhenBufferingFailsInsideBatchStep() throws Exception {
+        StreamingOutput stream = output -> {
+            throw new IOException("render failed");
+        };
+        stubReportRun(stream);
+        when(birtProperties.getBufferedReportMaxSizeBytes()).thenReturn(1024L);
+
+        StepSynchronizationManager.register(mock(StepExecution.class));
+        try {
+            assertThrows(
+                    PlatformDataIntegrityException.class, () -> service.processRequest("sample", queryParams("PDF")));
+        } finally {
+            StepSynchronizationManager.release();
+        }
+    }
+
+    @Test
+    @DisplayName("Should fail instead of handing over a report cut short at the size limit")
+    void shouldFailWhenReportExceedsBufferLimit() throws Exception {
+        StreamingOutput stream = output -> {
+            output.write("report".getBytes(StandardCharsets.UTF_8));
+            output.write('!');
+        };
+        stubReportRun(stream);
+        when(birtProperties.getBufferedReportMaxSizeBytes()).thenReturn(6L);
+
+        StepSynchronizationManager.register(mock(StepExecution.class));
+        try {
+            PlatformDataIntegrityException ex = assertThrows(
+                    PlatformDataIntegrityException.class, () -> service.processRequest("sample", queryParams("PDF")));
+
+            assertEquals("error.msg.reporting.output.too.large", ex.getGlobalisationMessageCode());
+        } finally {
+            StepSynchronizationManager.release();
+        }
+    }
+
+    private void stubReportRun(StreamingOutput stream) throws Exception {
+        IReportRunnable design = mock(IReportRunnable.class);
+        IRunTask task = mock(IRunTask.class);
+
+        when(task.getAppContext()).thenReturn(new HashMap<>());
+        when(reportExecutionFactory.createExecutionRunnable(anyString(), any())).thenReturn(design);
+        when(design.getDesignHandle()).thenReturn(mock(ReportDesignHandle.class));
+        when(reportEngine.createRunTask(design)).thenReturn(task);
+        when(pdfRenderer.render(eq(reportEngine), anyString(), anyString()))
+                .thenReturn(Response.ok(stream).type("application/pdf").build());
     }
 
     @ParameterizedTest

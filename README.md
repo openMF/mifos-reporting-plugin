@@ -129,6 +129,12 @@ export MIFOS_BIRT_REPORTS_FONTS_PATH=/app/birt/fonts
 export MIFOS_BIRT_REPORTS_FONTS_CONFIG_PATH=/app/birt/config
 ```
 
+Reports sent by Report Mailing Jobs are held in memory before they are attached, so their size is capped. A larger report fails that run with `error.msg.reporting.output.too.large`, shown in the job's run history, and no email is sent.
+
+| Property | Default | Purpose |
+| --- | --- | --- |
+| `mifos.birt.buffered-report-max-size-bytes` | `26214400` (25 MiB) | Largest report a Report Mailing Job may send |
+
 ### 6. Security & User Permissions
 
 To execute a report, the authenticated user's role must hold one of the following permissions:
