@@ -37,6 +37,8 @@ public class BirtPluginProperties {
     private int readOnlyPoolMaxSize = 5;
     // How long a report waits for one of them before failing
     private long readOnlyConnectionTimeoutMillis = 10_000L;
+    // Largest report held in memory for a report mailing job, in line with common attachment limits
+    private long bufferedReportMaxSizeBytes = 25L * 1024 * 1024;
 
     /**
      * Both values are handed to HikariCP, which refuses a maximum pool size below 1 and any of its
@@ -56,6 +58,10 @@ public class BirtPluginProperties {
         if (readOnlyConnectionTimeoutMillis < MINIMUM_TIMEOUT_MILLIS) {
             throw new IllegalStateException("mifos.birt.read-only-connection-timeout-millis must be at least "
                     + MINIMUM_TIMEOUT_MILLIS + "ms, but is " + readOnlyConnectionTimeoutMillis);
+        }
+        if (bufferedReportMaxSizeBytes < 1) {
+            throw new IllegalStateException("mifos.birt.buffered-report-max-size-bytes must be at least 1, but is "
+                    + bufferedReportMaxSizeBytes);
         }
     }
 }
