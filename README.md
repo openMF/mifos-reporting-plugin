@@ -20,6 +20,113 @@ The reporting engine determines the base report directory using the following hi
 
 ---
 
+## Quick Start with Docker Compose
+
+To try the plugin you need three things running together: a database, the plugin built from this repository, and an Apache Fineract® server that loads it. Docker Compose starts all three from one file with one command, so you don't install Java, Maven or PostgreSQL® yourself. An AI coding agent can also do the whole setup for you; see [Install with an AI Agent](#install-with-an-ai-agent).
+
+[`docker-compose.yml`](docker-compose.yml) runs the plugin inside Apache Fineract® on your machine. You only need Docker® with Compose 2.23.1 or later (`docker compose version`), about 4 GB of memory for Docker®, and internet access for the images and Maven dependencies. Java and Maven run inside a container.
+
+```bash
+git clone https://github.com/openMF/mifos-reporting-plugin.git
+cd mifos-reporting-plugin
+docker compose up -d
+sh .agents/skills/reporting-docker-compose/scripts/verify-install.sh
+```
+
+It starts PostgreSQL®, builds the plugin JAR and collects its Eclipse BIRT® libraries from your checkout, and starts `apache/fineract:develop` with both on its classpath. The report designs from `birt/reports/` are copied into a `reports` volume mounted at `/app/birt/reports`, and the fonts from `birt/fonts/` are mounted at `/app/birt/fonts`. The plugin runs its own Liquibase migrations on every tenant when Apache Fineract® starts.
+
+With an empty Maven cache the first build downloads every dependency; on a laptop it took 8 minutes. If it stops with `Connect timed out`, run `docker compose up -d` again: finished downloads are kept in the `maven-repo` volume. Apache Fineract® with the plugin is up about 2 minutes after the build. The verify script waits for it and prints a PASS or FAIL line for health, the mounted plugin and BIRT libraries, the admin login, and the `Active_Loans_Details` report rendered as a PDF (an Apache Fineract® without the plugin answers `503` there).
+
+* API: `https://localhost:8443/fineract-provider/api/v1` (self-signed certificate, so `curl -k`), with the header `Fineract-Platform-TenantId: default`. Admin login: `mifos` / `password`.
+* Run a report: `GET /runreports/<report name>?output-type=PDF` (or `HTML`, `CSV`, `XLS`, `XLSX`) with its parameters as `R_<name>`. The report the verify script runs:
+
+  ```bash
+  curl -k --noproxy '*' -u mifos:password -H 'Fineract-Platform-TenantId: default' -o active-loans.pdf \
+    'https://localhost:8443/fineract-provider/api/v1/runreports/Active_Loans_Details?output-type=PDF&locale=en&R_branch=1&R_loanOfficer=-1&R_currencyId=-1&R_fundId=-1&R_loanProductId=-1&R_loanPurposeId=-1'
+  ```
+* After changing the source or `birt/reports/`: `docker compose up -d --force-recreate plugin-build fineract`.
+* Stop: `docker compose down`. Delete the database and uploaded designs too: `docker compose down -v`.
+
+The `fineract` service sets these environment variables in `docker-compose.yml` (edit them there):
+
+| Variable | Value |
+| --- | --- |
+| `FINERACT_HIKARI_JDBC_URL` | `jdbc:postgresql://db:5432/fineract_tenants` |
+| `FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME` | `org.postgresql.Driver` |
+| `FINERACT_HIKARI_USERNAME` / `FINERACT_HIKARI_PASSWORD` | `postgres` / `postgres` |
+| `FINERACT_DEFAULT_TENANTDB_HOSTNAME` / `FINERACT_DEFAULT_TENANTDB_PORT` | `db` / `5432` |
+| `FINERACT_DEFAULT_TENANTDB_UID` / `FINERACT_DEFAULT_TENANTDB_PWD` | `postgres` / `postgres` |
+| `FINERACT_DEFAULT_TENANTDB_CONN_PARAMS` | empty |
+| `FINERACT_SERVER_SSL_ENABLED` / `FINERACT_SERVER_PORT` | `true` / `8443` |
+| `MIFOS_BIRT_REPORTS_PATH` | `/app/birt/reports` |
+| `MIFOS_BIRT_FONTS_PATH` | `/app/birt/fonts` |
+| `JAVA_TOOL_OPTIONS` | `-Xmx2G` |
+| `TZ` | `UTC` |
+
+This is a local demo setup. The database password and the admin login are fixed defaults, and Apache Fineract® listens on `127.0.0.1` only.
+
+### Install with an AI Agent
+
+[`.agents/skills/reporting-docker-compose/SKILL.md`](.agents/skills/reporting-docker-compose/SKILL.md) is an [Agent Skill](https://agentskills.io) that runs the Docker Compose install above, watches for known failures, checks the result with the verify script, and can save a sample report as a PDF. It also covers stopping and uninstalling.
+
+A skill is a folder with written instructions (`SKILL.md`) and, here, one script. When an agent that supports skills starts in this repository, it sees the name and one-line description of every skill in `.agents/skills/`. When your request matches a description, the agent opens the full instructions and runs the steps itself. You don't paste anything into the chat.
+
+Run your agent from the repository root:
+
+| Agent | Setup |
+| --- | --- |
+| Codex | None. Codex loads skills from `.agents/skills/`. Its default sandbox blocks Docker®; allow network, for example `codex exec -s workspace-write -c sandbox_workspace_write.network_access=true` |
+| Pi Agent | None. Pi loads skills from `.agents/skills/` once you trust the project (`/trust`, or `pi --approve` for one run) |
+| Claude Code | `mkdir -p .claude/skills && ln -s ../../.agents/skills/reporting-docker-compose .claude/skills/` |
+| Hermes Agent | `hermes skills trust` in the repository root; Hermes then loads skills from `.agents/skills/` |
+| OpenCode | None. OpenCode loads skills from `.agents/skills/` |
+
+Then ask, for example: *"Install the reporting plugin with Docker Compose and generate a sample report"*, or *"Remove the reporting plugin Docker setup"*. The agent runs `docker compose`, `verify-install.sh` and `curl`; approve those when it asks. The sample report is saved as `active-loans.pdf` in the repository root. If you'd rather not use an agent, run the four commands at the top of this section yourself, or follow [For Users](#for-users) for an existing Apache Fineract® server.
+
+#### OpenCode with a local model (Ollama)
+
+OpenCode can run the skill with `gpt-oss:20b` on your own machine through [Ollama](https://ollama.com), with no hosted model. The model needs about 13 GB of memory on top of Docker®'s 4 GB. OpenCode's default context is too small for its tools plus the skill, so create a copy of the model with a 64k context:
+
+```bash
+ollama pull gpt-oss:20b
+printf 'FROM gpt-oss:20b\nPARAMETER num_ctx 65536\n' > Modelfile
+ollama create gpt-oss-20b-64k -f Modelfile && rm Modelfile
+```
+
+Add the model to `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama",
+      "options": { "baseURL": "http://localhost:11434/v1" },
+      "models": { "gpt-oss-20b-64k": { "name": "gpt-oss 20B (64k context)" } }
+    }
+  }
+}
+```
+
+Then, in the repository root: `opencode run -m ollama/gpt-oss-20b-64k "Install the reporting plugin with Docker Compose and generate a sample report."`
+
+#### Test results
+
+Each run started from an empty stack (Maven cache kept). "Passed" means the agent installed the plugin and a separate run of `verify-install.sh` afterwards passed all four checks.
+
+| Agent | Model | Prompt | Opened the skill | Passed |
+| --- | --- | --- | --- | --- |
+| Claude Code 2.1.322 | default (hosted) | *"Install the reporting plugin with Docker Compose."* | 1 of 1 | 1 of 1 (103 s) |
+| Codex 0.167.1 | local `gpt-oss:20b` | same | 0 of 2 (ran `docker compose up -d` itself) | 2 of 2 |
+| OpenCode 2.2.5 | local `gpt-oss:20b` | same | 3 of 5 | 3 of 5 (291–908 s) |
+| Pi Agent 1.5.2 (`pi --approve`) | local `gpt-oss:20b` | same | 1 of 2 | 1 of 2 (405 s) |
+| OpenCode 2.2.5 | local `gpt-oss:20b` | *"Install the reporting plugin with Docker Compose and generate a sample report."* | 1 of 2 | 1 of 2 (423 s) |
+
+The local model is not reliable at choosing the skill. In the failed OpenCode and Pi runs with the first prompt, it printed install instructions instead of running them. With the second prompt, the first run searched the Java sources for a report API instead. The skill's description didn't mention sample reports then; after it was added, the next run opened the skill first, installed the plugin, saved `active-loans.pdf` and passed all four checks. One run after a fix is not a success rate. Hermes Agent was not run; its row follows its documentation.
+
+---
+
 ## For Users
 
 ### 1. Create Report Directories

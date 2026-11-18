@@ -1,0 +1,122 @@
+# Local demo: Apache Fineract (develop image) with this BIRT reporting plugin, on PostgreSQL.
+# docker compose up -d   then   https://localhost:8443/fineract-provider (self-signed certificate)
+# Not for production: fixed demo database password, self-signed TLS, default Fineract login.
+name: reporting
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fineract_tenants
+    # Fineract also needs the default tenant's database; it doesn't create it.
+    configs:
+      - source: create-tenant-db
+        target: /docker-entrypoint-initdb.d/create-tenant-db.sql
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      # Over TCP: during first-run initialisation PostgreSQL listens on its Unix socket only.
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"]
+      interval: 5s
+      retries: 20
+
+  # Builds the plugin JAR and collects the Eclipse BIRT libraries it needs (target/test-runtime/libs)
+  # into the "plugin" volume, and copies the shipped report designs into the "reports" volume.
+  # The source is mounted read-only and copied, so nothing in the checkout changes.
+  plugin-build:
+    image: maven:3.9.15-eclipse-temurin-25
+    volumes:
+      - .:/src:ro
+      - plugin:/plugin
+      - reports:/reports
+      - maven-repo:/root/.m2
+    command:
+      - sh
+      - -ec
+      - |
+        rm -rf /tmp/build && mkdir /tmp/build
+        tar -C /src --exclude=./target --exclude=./.git -cf - . | tar -C /tmp/build -xf -
+        cd /tmp/build
+        # Each dependency is looked up in the pom's extra repositories before Maven Central, about
+        # 1 s per miss. Resolving in parallel cuts a first build by a large factor.
+        mvn -B -q package -Dmaven.test.skip=true -Dspotless.check.skip=true \
+          -Daether.dependencyCollector.impl=bf -Daether.dependencyCollector.bf.threads=16 \
+          -Daether.connector.basic.threads=16
+        jar=$$(ls target/birt-plugin-*.jar | grep -vE -- '-(sources|javadoc|tests)\.jar$$') ||
+          { echo "error: no plugin JAR in target/" >&2; exit 1; }
+        # Stage first: a failed build or interrupted copy keeps the previous install.
+        rm -rf /plugin/.new && mkdir /plugin/.new
+        cp "$$jar" /plugin/.new/birt-plugin.jar
+        cp -r target/test-runtime/libs /plugin/.new/libs
+        rm -rf /plugin/libs /plugin/birt-plugin.jar
+        mv /plugin/.new/libs /plugin/libs && mv /plugin/.new/birt-plugin.jar /plugin/birt-plugin.jar
+        rmdir /plugin/.new
+        # Shipped designs overwrite their older copies; designs uploaded per tenant are kept.
+        # Copy, then rename: a running Fineract must never read a half-written design.
+        for f in birt/reports/*.rptdesign; do
+          tmp="/reports/.$${f##*/}.tmp"
+          cp "$$f" "$$tmp" && chown 65534:65534 "$$tmp" && mv "$$tmp" "/reports/$${f##*/}"
+        done
+        # Fineract runs as nobody and writes uploaded designs to /app/birt/reports/<tenant>/.
+        chown -R 65534:65534 /reports
+        ls -l /plugin /reports
+
+  fineract:
+    image: apache/fineract:develop
+    depends_on:
+      db:
+        condition: service_healthy
+      plugin-build:
+        condition: service_completed_successfully
+    environment:
+      FINERACT_HIKARI_JDBC_URL: jdbc:postgresql://db:5432/fineract_tenants
+      FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME: org.postgresql.Driver
+      FINERACT_HIKARI_USERNAME: postgres
+      FINERACT_HIKARI_PASSWORD: postgres
+      FINERACT_DEFAULT_TENANTDB_HOSTNAME: db
+      FINERACT_DEFAULT_TENANTDB_PORT: "5432"
+      FINERACT_DEFAULT_TENANTDB_UID: postgres
+      FINERACT_DEFAULT_TENANTDB_PWD: postgres
+      FINERACT_DEFAULT_TENANTDB_CONN_PARAMS: ""
+      FINERACT_SERVER_SSL_ENABLED: "true"
+      FINERACT_SERVER_PORT: "8443"
+      JAVA_TOOL_OPTIONS: -Xmx2G
+      TZ: UTC
+      # The plugin's Liquibase migration also stores /app/birt/reports per tenant (reports_dir).
+      MIFOS_BIRT_REPORTS_PATH: /app/birt/reports
+      MIFOS_BIRT_FONTS_PATH: /app/birt/fonts
+    volumes:
+      - plugin:/app/birt/plugin:ro
+      - reports:/app/birt/reports
+      - ./birt/fonts:/app/birt/fonts:ro
+    # The image's own classpath (/app/plugins/* first) would let the BIRT libraries replace newer
+    # versions of the same libraries in Fineract. Put Fineract's classpath before them instead.
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        exec java -Duser.home=/tmp -Dfile.encoding=UTF-8 -Duser.timezone=UTC
+        -cp "/app/birt/plugin/birt-plugin.jar:$$(cat /app/jib-classpath-file):/app/birt/plugin/libs/*"
+        org.apache.fineract.ServerApplication
+    command: []
+    ports:
+      - "127.0.0.1:8443:8443"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "--no-check-certificate",
+             "https://localhost:8443/fineract-provider/actuator/health"]
+      interval: 15s
+      timeout: 10s
+      start_period: 10m
+      retries: 4
+
+configs:
+  create-tenant-db:
+    content: CREATE DATABASE fineract_default;
+
+volumes:
+  db-data:
+  plugin:
+  reports:
+  maven-repo:
